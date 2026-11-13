@@ -1,0 +1,8 @@
+.makeme-action-row{display:flex;justify-content:flex-end;align-items:center;gap:8px;flex-wrap:wrap}
+.makeme-action-row form{margin:0}
+.makeme-form{display:grid;gap:8px;max-height:65vh;overflow-y:auto;padding-right:5px}
+.makeme-form input,.makeme-form select{width:100%;min-height:43px;border-radius:10px;background:#25252b;border:1px solid #514832;color:#fff;padding:10px 12px;font:inherit}
+.makeme-form input:focus,.makeme-form select:focus{outline:2px solid #d6ad58;outline-offset:1px}
+.makeme-form .field-label{margin-top:6px}
+.makeme-form .modal-actions{position:sticky;bottom:0;background:#19191d;padding-top:12px}
+.modal-backdrop[hidden]{display:none!important}

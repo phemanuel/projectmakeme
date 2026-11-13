@@ -1,0 +1,120 @@
+.logout-form{margin:0}.logout-button{display:inline-flex;align-items:center;gap:8px;border:1px solid #e8ddc5;background:#fff9ed;color:#6d5024;border-radius:10px;padding:10px 13px;font-weight:800;font-size:12px}.logout-button:hover{background:#f8e9c4}.module-panel{position:relative;isolation:isolate;max-width:930px;padding:38px;overflow:hidden}.module-glow{position:absolute;right:-150px;top:-140px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,#d6ad5828,transparent 67%);z-index:-1}.module-kicker{color:#a78542;font-size:10px;font-weight:800;letter-spacing:2px}.module-panel h2{font:800 clamp(22px,3vw,30px) 'Manrope',sans-serif;margin:18px 0 12px}.module-panel>p{max-width:600px;line-height:1.7;color:#6c6970}.module-features{display:grid;gap:12px;margin:25px 0}.module-feature{border:1px solid #ebe5d8;background:#fbfaf7;border-radius:12px;padding:15px 18px;font-weight:600}.module-feature span{margin-right:12px;color:#ae8034}.module-actions{display:flex;gap:12px;flex-wrap:wrap}@media(max-width:600px){.logout-button span{display:none}.logout-button{padding:10px 12px}.topbar-end{gap:8px}.module-panel{padding:24px}}
+
+
+
+/* Admin Profile Dropdown */
+
+.makeme-admin-profile {
+    position: relative;
+    display: inline-block;
+    z-index: 100;
+}
+
+.makeme-profile-trigger {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    background: #17171b;
+    border: 1px solid rgba(214, 173, 88, .25);
+    border-radius: 12px;
+    color: #fff;
+    cursor: pointer;
+}
+
+.makeme-profile-avatar {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #b88735, #f5de94);
+    color: #111;
+    font-weight: 700;
+}
+
+.makeme-profile-info {
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+}
+
+.makeme-profile-info strong {
+    font-size: 13px;
+}
+
+.makeme-profile-info small {
+    font-size: 11px;
+    color: #aaa;
+}
+
+.makeme-dropdown-arrow {
+    color: #d6ad58;
+    transition: transform .2s;
+}
+
+.makeme-profile-trigger[aria-expanded="true"]
+.makeme-dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.makeme-profile-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    width: 250px;
+    padding: 10px;
+    background: #1b1b20;
+    border: 1px solid rgba(214, 173, 88, .25);
+    border-radius: 14px;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, .3);
+    z-index: 9999;
+}
+
+.makeme-profile-dropdown.show {
+    display: block;
+}
+
+.makeme-dropdown-header {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 12px;
+    overflow-wrap: anywhere;
+}
+
+.makeme-dropdown-header strong {
+    color: #f5de94;
+    font-size: 14px;
+}
+
+.makeme-dropdown-header small {
+    color: #aaa;
+    font-size: 12px;
+}
+
+.makeme-dropdown-divider {
+    height: 1px;
+    background: rgba(214, 173, 88, .15);
+    margin: 5px 0;
+}
+
+.makeme-dropdown-logout {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: #ff8585;
+    cursor: pointer;
+    font-weight: 600;
+    text-align: left;
+}
+
+.makeme-dropdown-logout:hover {
+    background: rgba(255, 80, 80, .1);
+}

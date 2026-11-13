@@ -1,0 +1,19 @@
+@extends('admin.makeme.layouts.app')
+@section('title', $product->exists ? 'Edit Product' : 'Add Product')
+@section('content')
+<div class="page-intro"><div><div class="intro-kicker">MARKETPLACE / PRODUCTS</div><h1>{{ $product->exists ? 'Edit product' : 'New product' }}<span class="gold-period">.</span></h1><p>Set a credit price and quantity. Save as draft until ready.</p></div><a class="btn btn-outline" href="{{ route('admin.makeme.products.index') }}">← Back to products</a></div>
+@if($errors->any())<div class="notice error"><strong>Please correct the following:</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+<form class="panel product-form" method="POST" enctype="multipart/form-data" action="{{ $product->exists ? route('admin.makeme.products.update', $product) : route('admin.makeme.products.store') }}">@csrf @if($product->exists)@method('PATCH')@endif
+<div class="panel-heading"><div><h2>Product details</h2><p>Items will be listed to approved contestants when published.</p></div></div>
+<div class="form-grid">
+<div class="form-field"><label for="name">Product name *</label><input id="name" name="name" required maxlength="180" value="{{ old('name',$product->name) }}" placeholder="e.g. Sewing Machine"></div>
+<div class="form-field"><label for="sku">SKU / stock code *</label><input id="sku" name="sku" required maxlength="80" value="{{ old('sku',$product->sku) }}" placeholder="e.g. NYF-SEW-001"></div>
+<div class="form-field"><label for="category">Category *</label><select id="category" name="category" required><option value="">Choose a category</option>@foreach(['general'=>'General (all skills)','fashion_designing'=>'Fashion Designing','shoe_making'=>'Shoe-making','hair_styling'=>'Hair Styling','photography'=>'Photography','makeup_artistry'=>'Makeup Artistry'] as $key=>$label)<option value="{{ $key }}" @selected(old('category',$product->category)===$key)>{{ $label }}</option>@endforeach</select></div>
+<div class="form-field"><label for="credit_price">Credit price *</label><input id="credit_price" name="credit_price" required type="number" min="0" max="999999999" value="{{ old('credit_price',$product->credit_price) }}"></div>
+<div class="form-field"><label for="stock_quantity">Stock quantity *</label><input id="stock_quantity" name="stock_quantity" required type="number" min="0" max="999999999" value="{{ old('stock_quantity',$product->stock_quantity ?? 0) }}"></div>
+<div class="form-field"><label for="max_per_participant">Max quantity per participant</label><input id="max_per_participant" name="max_per_participant" type="number" min="1" max="1000" value="{{ old('max_per_participant',$product->max_per_participant) }}" placeholder="No limit"></div>
+<div class="form-field full"><label for="description">Description</label><textarea id="description" name="description" rows="5" maxlength="4000" placeholder="Product features and what the contestant will receive">{{ old('description',$product->description) }}</textarea></div>
+<div class="form-field full"><label for="image">Product photo (JPEG, PNG, WebP; up to 3 MB)</label><input id="image" type="file" name="image" accept="image/jpeg,image/png,image/webp">@if($product->image_path)<img class="image-preview" src="{{ \Illuminate\Support\Facades\Storage::url($product->image_path) }}" alt="Current product image">@endif</div>
+<div class="form-field full"><label class="checkbox-row"><input type="checkbox" name="is_active" value="1" @checked(old('is_active',$product->is_active))> Publish product (visible when participant marketplace is enabled)</label></div>
+</div><div class="form-actions"><a class="btn btn-outline" href="{{ route('admin.makeme.products.index') }}">Cancel</a><button class="btn btn-gold" type="submit">{{ $product->exists ? 'Save changes' : 'Create product' }}</button></div></form>
+@endsection
