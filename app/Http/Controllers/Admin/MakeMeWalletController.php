@@ -398,54 +398,56 @@ class MakeMeWalletController extends Controller
             $wallet->balance = $balanceAfter;
             $wallet->save();
 
+            
             /*
-            |----------------------------------------------------------
-            | Record transaction history
-            |----------------------------------------------------------
+            |--------------------------------------------------------------------------
+            | Record Transaction History
+            |--------------------------------------------------------------------------
             */
 
             $wallet->transactions()->create([
-                'performed_by' =>
-                    auth('web')->id(),
-
-                'type' =>
-                    $validated['type'],
-
-                'amount' =>
-                    $amount,
-
-                'balance_before' =>
-                    $balanceBefore,
-
-                'balance_after' =>
-                    $balanceAfter,
-
-                'reason' =>
-                    trim($validated['reason']),
-            ]);
-
-        }, 3);
-
-
-        MakeMeActivityLogger::record(
-            'wallets',
-            $validated['type'] === 'credit'
-                ? 'credit_added'
-                : 'credit_deducted',
-            $validated['type'] === 'credit'
-                ? 'Credits allocated to participant wallet'
-                : 'Credits deducted from participant wallet',
-            $wallet,
-            [
-                'participant_id' => $lockedParticipant->getKey(),
-                'wallet_id' => $wallet->id,
-                'transaction_type' => $validated['type'],
+                'performed_by' => auth('web')->id(),
+                'type' => $validated['type'],
                 'amount' => $amount,
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'reason' => trim($validated['reason']),
-            ]
-        );
+            ]);
+
+            /*
+            |--------------------------------------------------------------------------
+            | Record Activity Log
+            |--------------------------------------------------------------------------
+            | Keep logging inside the transaction so the variables
+            | remain in scope and the operation stays atomic.
+            */
+
+            MakeMeActivityLogger::record(
+                'wallets',
+
+                $validated['type'] === 'credit'
+                    ? 'credit_added'
+                    : 'credit_deducted',
+
+                $validated['type'] === 'credit'
+                    ? 'Credits allocated to participant wallet'
+                    : 'Credits deducted from participant wallet',
+
+                $wallet,
+
+                [
+                    'participant_id' => $lockedParticipant->getKey(),
+                    'wallet_id' => $wallet->id,
+                    'transaction_type' => $validated['type'],
+                    'amount' => $amount,
+                    'balance_before' => $balanceBefore,
+                    'balance_after' => $balanceAfter,
+                    'reason' => trim($validated['reason']),
+                ]
+            );
+
+            }, 3);
+
 
 
         /*

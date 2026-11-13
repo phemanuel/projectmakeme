@@ -607,3 +607,123 @@
         grid-template-columns: 1fr;
     }
 }
+
+
+/* Kolo Money sponsor branding */
+
+.wm-kolo-header {
+    padding: 22px 24px;
+    background: #ffffff;
+    border: 1px solid #e8edf4;
+    border-radius: 16px;
+}
+
+.wm-kolo-brand {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.wm-kolo-logo {
+    width: 76px;
+    height: 76px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.wm-kolo-brand h1 {
+    margin-bottom: 6px;
+}
+
+@media (max-width: 600px) {
+    .wm-kolo-logo {
+        width: 56px;
+        height: 56px;
+    }
+
+    .wm-kolo-header {
+        padding: 16px;
+    }
+}
+
+
+/* ==========================================
+   KOLO MONEY — TABLE ACTION BUTTONS
+========================================== */
+
+.wm-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+
+.wm-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 9px 13px;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.2s ease,
+                border-color 0.2s ease,
+                transform 0.2s ease;
+}
+
+.wm-action-btn i {
+    font-size: 12px;
+}
+
+/* History — subtle outline */
+.wm-action-history {
+    background: #ffffff;
+    border: 1px solid #dce3ed;
+    color: #52627b;
+}
+
+.wm-action-history:hover {
+    background: #f4f7fb;
+    border-color: #b8c6da;
+    color: #253e65;
+}
+
+/* Manage Credits — primary */
+.wm-action-manage {
+    background: #203f86;
+    border: 1px solid #203f86;
+    color: #ffffff;
+    box-shadow: 0 2px 6px rgba(32, 63, 134, 0.12);
+}
+
+.wm-action-manage:hover {
+    background: #17326d;
+    border-color: #17326d;
+    box-shadow: 0 4px 12px rgba(32, 63, 134, 0.18);
+}
+
+.wm-action-btn:active {
+    transform: translateY(1px);
+}
+
+.wm-action-btn:focus-visible {
+    outline: 3px solid rgba(32, 63, 134, 0.25);
+    outline-offset: 2px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .wm-actions {
+        gap: 6px;
+    }
+
+    .wm-action-btn {
+        padding: 8px 10px;
+        font-size: 11px;
+    }
+}
+

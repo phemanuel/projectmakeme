@@ -1,0 +1,85 @@
+/* Extension of the existing participant admin styling; no base class overrides. */
+.mp-modal-wide { width: min(860px, calc(100vw - 28px)); max-width: 860px; max-height: 90vh; overflow-y: auto; }
+.mp-profile-form { padding-bottom: 8px; }
+.mp-form-section { margin: 18px 0; padding: 16px; background: rgba(255,255,255,.045); border: 1px solid rgba(145,125,150,.23); border-radius: 12px; }
+.mp-form-section h3 { font-size: 14px; font-weight: 800; margin: 0 0 16px; color: inherit; }
+.mp-field-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px 16px; }
+.mp-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.mp-field .field-label { margin: 0; }
+.mp-field input, .mp-field select { width: 100%; min-width: 0; }
+.mp-photo-row { display: flex; align-items: center; gap: 18px; }
+.mp-photo-row > div:last-child { min-width: 0; flex: 1; }
+.mp-photo-preview { width: 100px; height: 110px; flex: none; border-radius: 13px; background: #ede5f0; color: #6b5173; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #dbc9e1; font-size: 12px; }
+.mp-photo-preview img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+.mp-hint { font-size: 11px; line-height: 1.6; opacity: .75; margin: 8px 0 0; }
+.mp-avatar { overflow: hidden; padding: 0; }
+.mp-avatar img { width: 100%; height: 100%; display: block; object-fit: cover; border-radius: 50%; }
+.mp-profile-preview { display: flex; gap: 20px; padding: 20px; max-height: 65vh; overflow-y: auto; }
+.mp-profile-photo { width: 138px; height: 165px; }
+.mp-profile-info { min-width: 0; flex: 1; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.mp-profile-entry { min-width: 0; display: flex; flex-direction: column; gap: 5px; border-bottom: 1px solid rgba(145,125,150,.2); padding-bottom: 10px; }
+.mp-profile-entry span { font-size: 11px; opacity: .7; }
+.mp-profile-entry strong { font-size: 12px; font-weight: 700; overflow-wrap: anywhere; }
+.modal-backdrop[hidden] { display: none !important; }
+@media(max-width:640px) { .mp-field-grid, .mp-profile-info { grid-template-columns: 1fr; } .mp-profile-preview { flex-direction: column; } .mp-photo-row { align-items: flex-start; } }
+
+
+
+/* ==========================================
+   VIEW PROFILE MODAL — SINGLE SCROLLBAR FIX
+========================================== */
+
+/* Modal overlay */
+#profileModal.modal-backdrop {
+    overflow: hidden !important;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+/* Modal container — fixed height, no scrolling */
+#profileModal .modal-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: calc(100dvh - 40px);
+    overflow: hidden !important;
+}
+
+/* Header remains visible */
+#profileModal .modal-head {
+    flex: 0 0 auto;
+}
+
+/* The profile content is the ONLY scrollable area */
+#profileModal .mp-profile-preview {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+}
+
+/* Internal content must not create additional scrollbars */
+#profileModal .mp-profile-info,
+#profileModal .mp-profile-photo {
+    max-height: none;
+    overflow: visible;
+}
+
+/* Footer remains visible */
+#profileModal .modal-actions {
+    flex: 0 0 auto;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 600px) {
+    #profileModal.modal-backdrop {
+        padding: 10px;
+    }
+
+    #profileModal .modal-card {
+        max-height: calc(100dvh - 20px);
+    }
+}

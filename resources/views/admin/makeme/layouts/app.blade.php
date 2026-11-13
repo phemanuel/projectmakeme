@@ -80,7 +80,7 @@
                 <a class="nav-link {{ request()->routeIs('admin.makeme.wallets.*') ? 'is-active' : '' }}"
                 href="{{ route('admin.makeme.wallets.index') }}">
                     <span class="nav-icon">◈</span>
-                    Wallets
+                    Kolo Money
                 </a>
             @endif
 

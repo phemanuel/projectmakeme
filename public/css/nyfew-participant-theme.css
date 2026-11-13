@@ -1,0 +1,88 @@
+/* ProjectMakeMe / NYFEW participant theme: black and metallic gold.
+   Based on supplied NYFEW ProjectMakeMe Reality TV Show logo.
+   Load AFTER app.css and dashboard.css, after @stack('styles').
+   Colour-only overrides: dashboard layout and photo dimensions remain unchanged. */
+:root {
+    --nyfew-black: #0D0D0F;
+    --nyfew-black-soft: #1B1A1A;
+    --nyfew-gold: #D8B45E;
+    --nyfew-gold-bright: #F0D47B;
+    --nyfew-gold-dark: #937026;
+    --nyfew-cream: #FAF8F2;
+    --nyfew-ink: #26231E;
+    --nyfew-muted: #706A5F;
+    --nyfew-line: #E8E2D6;
+    --cp-bg: var(--nyfew-cream);
+    --cp-ink: var(--nyfew-ink);
+    --cp-muted: var(--nyfew-muted);
+    --cp-line: var(--nyfew-line);
+    --cp-plum: var(--nyfew-black);
+    --cp-plum2: var(--nyfew-black-soft);
+    --cp-pink: var(--nyfew-gold-dark);
+    --cp-gold: var(--nyfew-gold);
+}
+body { background:var(--nyfew-cream); color:var(--nyfew-ink); }
+/* Navigation */
+.cp-sidebar { background:linear-gradient(180deg,#1B1A1A,#080808); color:#F8F3E7; box-shadow:8px 0 28px rgba(0,0,0,.11); }
+.cp-sidebar-head,.cp-sidebar-footer { border-color:rgba(240,212,123,.18); }
+.cp-brand strong { color:var(--nyfew-gold-bright); }
+.cp-brand small,.cp-nav-heading { color:#C1B79D; }
+.cp-nav-link { color:#E0DAD0; }
+.cp-nav-link.active { background:linear-gradient(105deg,#B58A36,#F0D47B); color:#16120A; box-shadow:0 6px 18px rgba(183,140,51,.2); }
+.cp-nav-link.active .cp-nav-icon { color:#16120A; }
+.cp-nav-link:not(.active):not(.cp-nav-disabled):hover { background:rgba(240,212,123,.13); color:#FFF6DE; }
+.cp-nav-disabled { color:#B6AFA5; }
+.cp-sidebar-pass { background:rgba(216,180,94,.09); border-color:rgba(216,180,94,.38); }
+.cp-pass-mark { color:var(--nyfew-gold-bright); background:rgba(216,180,94,.19); }
+.cp-sidebar-pass strong { color:#F8F2E6; }
+.cp-sidebar-pass small,.cp-signout { color:#D7D0C5; }
+.cp-signout:hover { background:rgba(216,180,94,.12); color:#FFF7E6; }
+/* Header and avatar */
+.cp-topbar,.cp-footer { background:#FFFDF9; border-color:var(--nyfew-line); }
+.cp-breadcrumb,.cp-date,.cp-footer { color:var(--nyfew-muted); }
+.cp-breadcrumb strong,.cp-page-head h1,.cp-panel-heading h3,.cp-supply-heading h3 { color:#211C15; }
+.cp-topbar-tag { color:#6C511E; background:#FBF5E6; border-color:#E9D9AA; }
+.cp-profile-avatar,.cp-profile-menu-avatar,.cp-avatar { background:#F6ECD0; color:#6C511E; }
+.cp-profile-menu { border-color:var(--nyfew-line); }
+.cp-profile-menu-item:hover { background:#F8F2E4; }
+.cp-profile-menu .cp-profile-signout:hover { background:#F8F2E4; }
+.cp-avatar-fallback { background:linear-gradient(135deg,#A77B2C,#E4C36D) !important; color:#17120A !important; }
+/* Headings + banner */
+.cp-overline,.cp-page-head h1 span { color:var(--nyfew-gold-dark); }
+.cp-show-banner { background:radial-gradient(circle at 82% -15%,rgba(216,180,94,.27),transparent 43%),linear-gradient(115deg,#0C0C0C,#24201A 74%,#392E1A); color:#FFF9EC; }
+.cp-banner-kicker,.cp-banner-content h2 em,.cp-banner-art b { color:var(--nyfew-gold-bright); }
+.cp-banner-kicker-dot { background:var(--nyfew-gold); }
+.cp-banner-content p { color:#E7DFD0; }
+/* Cards */
+.cp-metric,.cp-panel,.cp-product { background:#FFFDF9; border-color:var(--nyfew-line); box-shadow:0 4px 18px rgba(36,27,9,.035); }
+.cp-metric strong,.cp-product h4,.cp-profile-row strong { color:var(--nyfew-ink); }
+.cp-metric small,.cp-metric div > span,.cp-profile-row > span { color:var(--nyfew-muted); }
+.cp-icon-pink,.cp-icon-purple { background:#F4ECD9; color:#876520; }
+.cp-icon-gold { background:#FBF1D5; color:#9F7221; }
+.cp-metric strong.cp-status-value,.cp-active-status { color:#27764B !important; }
+/* Sponsored Kolo Money card: preserve its separate identity if official sponsor artwork supplied later */
+.cp-money-panel { background:linear-gradient(135deg,#141311,#2B251A); border-color:#55472C; color:#FFF7E4; }
+.cp-money-panel .cp-overline,.cp-money-balance small,.cp-money-foot > span:last-child { color:var(--nyfew-gold-bright); }
+.cp-money-balance > span,.cp-money-foot { color:#E0D4BE; }
+/* Profile and product accents */
+.cp-profile-row { border-bottom-color:var(--nyfew-line); }
+.cp-profile-badge { background:#E8F5EC; color:#26764A; }
+.cp-profile-panel .cp-profile-main-photo { background:#151515 !important; border-color:#E4C36D !important; }
+.cp-profile-panel .cp-profile-photo-fallback,
+.cp-profile-panel .cp-contestant-portrait-fallback,
+.cp-profile-panel .cp-identity-fallback { background:linear-gradient(135deg,#46351B,#B78B38) !important; color:#FFF8E7 !important; }
+.cp-profile-panel .cp-photo-caption,.cp-profile-panel .cp-contestant-label { color:var(--nyfew-gold-dark) !important; }
+.cp-profile-panel .cp-contestant-number { background:#FAF1DD; color:#73521B; }
+.cp-supply-count { color:#6E511D; background:#FBF4E4; border-color:#EADBAF; }
+.cp-product-category,.cp-product-price strong { color:#8F651C; }
+.cp-product-photo { background:#F6F1E6; }
+.cp-products-empty { background:#FCFAF5; border-color:#E1D6BF; color:var(--nyfew-muted); }
+.cp-products-empty > span { color:var(--nyfew-gold-dark); }
+.cp-bottom-note { background:#F8F2E5; border-color:#E7D6B6; }
+.cp-note-icon { background:#262016; }
+.cp-bottom-note p { color:var(--nyfew-muted); }
+.cp-bottom-note strong { color:#4D3A1B; }
+/* Generic portal buttons where they exist */
+.cp-btn-primary,.cp-primary-button { background:#CBA348; color:#17130A; border-color:#CBA348; }
+.cp-btn-primary:hover,.cp-primary-button:hover { background:#E5C66D; }
+/* No width, height, grid-template-columns, or image resizing rules: photo layout unchanged. */

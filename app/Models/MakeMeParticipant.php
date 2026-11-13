@@ -20,6 +20,18 @@ class MakeMeParticipant extends Authenticatable
         'mobile_no', 'mobile_no1', 'address', 'gender', 'dob', 'occupation',
         'skill_category', 'image', 'instagram', 'facebook', 'tiktok', 'twitter',
         'status', 'notes', 'approved_at', 'password', 'email_verified_at', 'last_login_at',
+        'business_name',
+        'profession',
+        'age',
+        'city',
+        'state_of_origin',
+        'alternative_email',
+        'instagram_handle',
+        'tiktok_handle',
+        'facebook_handle',
+        'x_handle',
+        'linkedin_handle',
+        'photo_path',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -30,6 +42,7 @@ class MakeMeParticipant extends Authenticatable
         'email_verified_at' => 'datetime',
         'last_login_at' => 'datetime',
         'password' => 'hashed',
+        'age' => 'integer',
     ];
 
     public function scopeActive($query)
@@ -49,6 +62,20 @@ class MakeMeParticipant extends Authenticatable
             new MakeMeInvitationNotification($token)
         );
     }
+
+    
+    /**
+     * Get the contestant's uploaded photograph URL.
+     */
+    public function getPhotoUrlAttribute(): ?string
+    {
+        if (empty($this->photo_path)) {
+            return null;
+        }
+
+        return asset('storage/' . ltrim($this->photo_path, '/'));
+    }
+
 
     public function wallet()
     {

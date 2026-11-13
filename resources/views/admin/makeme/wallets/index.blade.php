@@ -1,7 +1,7 @@
 
 @extends('admin.makeme.layouts.app')
 
-@section('title', 'Wallet Management')
+@section('title', 'Kolo Money')
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('css/makeme-admin-wallets.css') }}">
@@ -43,13 +43,20 @@
 <div class="wm-page">
 
     {{-- PAGE HEADER --}}
-    <div class="wm-header">
-        <div>
-            <h1>Wallet Management</h1>
-            <p>
-                Manage participant credits, wallet balances
-                and transaction history.
-            </p>
+    <div class="wm-header wm-kolo-header">
+        <div class="wm-kolo-brand">
+            <img
+                src="{{ asset('images/sponsors/kolo-money-logo.png') }}"
+                alt="Kolo Money Logo"
+                class="wm-kolo-logo"
+            >
+
+            <div>
+                <h1>KoloMoni</h1>
+                <p>
+                    Official Wallet Sponsor · Project MakeMe Live
+                </p>
+            </div>
         </div>
     </div>
 
@@ -95,7 +102,7 @@
         <div class="wm-stat">
             <div class="wm-stat-icon">◈</div>
 
-            <span>Available Credits</span>
+            <span>Available KoloMoni</span>
 
             <strong>
                 {{ $formatCredits($stats['available_credits'] ?? 0) }}
@@ -106,7 +113,7 @@
         <div class="wm-stat">
             <div class="wm-stat-icon">＋</div>
 
-            <span>Credits Issued</span>
+            <span>KoloMoni Issued</span>
 
             <strong>
                 {{ $formatCredits($stats['credits_issued'] ?? 0) }}
@@ -117,7 +124,7 @@
         <div class="wm-stat">
             <div class="wm-stat-icon">−</div>
 
-            <span>Credits Deducted</span>
+            <span>KoloMoni Deducted</span>
 
             <strong>
                 {{ $formatCredits($stats['credits_deducted'] ?? 0) }}
@@ -132,7 +139,7 @@
 
         <div class="wm-card-header">
             <div>
-                <h2>Participant Wallets</h2>
+                <h2>Participant KoloMoni</h2>
 
                 <p>
                     Search participants, review balances,
@@ -401,7 +408,7 @@
                                 @if($wallet)
 
                                     <span class="wm-badge wm-badge-success">
-                                        Wallet Created
+                                        KoloMoni Created
                                     </span>
 
                                 @else
@@ -415,32 +422,38 @@
                             </td>
 
 
+                            
                             {{-- ACTIONS --}}
                             <td>
                                 <div class="wm-actions">
 
+                                    {{-- VIEW HISTORY --}}
                                     <button
                                         type="button"
-                                        class="wm-action"
+                                        class="wm-action-btn wm-action-history"
                                         data-wm-history="{{ $participantId }}"
+                                        title="View transaction history"
                                     >
-                                        View History
+                                        <i class="fa-solid fa-clock-rotate-left"></i>
+                                        <span>History</span>
                                     </button>
 
+                                    {{-- MANAGE KOLO MONEY --}}
                                     @if($canAdjust)
-
                                         <button
                                             type="button"
-                                            class="wm-action wm-action-primary"
+                                            class="wm-action-btn wm-action-manage"
                                             data-wm-adjust="{{ $participantId }}"
+                                            title="Manage Kolo Money credits"
                                         >
-                                            Adjust Credits
+                                            <i class="fa-solid fa-wallet"></i>
+                                            <span>Manage KoloMoni</span>
                                         </button>
-
                                     @endif
 
                                 </div>
                             </td>
+
 
                         </tr>
 
@@ -513,7 +526,7 @@
 
             <div>
                 <h2 id="wmAdjustTitle">
-                    Adjust Wallet Credits
+                    Adjust KoloMoni Credits
                 </h2>
 
                 <p id="wmAdjustSubtitle"></p>

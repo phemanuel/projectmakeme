@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use App\Models\MakeMeProduct;
 
 class MakeMeParticipantAuthController extends Controller
 {
@@ -40,9 +41,40 @@ class MakeMeParticipantAuthController extends Controller
         return redirect()->route('makeme.participant.dashboard');
     }
 
-    public function dashboard(Request $request)
+    public function dashboard()
     {
-        return view('makeme.participant.dashboard', ['participant'=>$request->user('makeme')]);
+        $participant = Auth::guard('makeme')->user();
+
+        if (!$participant) {
+            return redirect()->route('makeme.participant.login');
+        }
+
+        // Wallet is read-only on the dashboard.
+        $participant->load('wallet');
+
+        $walletBalance = (int) (
+            $participant->wallet?->balance ?? 0
+        );
+
+        // Only show products currently available for purchase.
+        $products = MakeMeProduct::query()
+            ->where('is_active', true)
+            ->where('stock_quantity', '>', 0)
+            ->orderByDesc('id')
+            ->limit(6)
+            ->get();
+
+        $availableProducts = MakeMeProduct::query()
+            ->where('is_active', true)
+            ->where('stock_quantity', '>', 0)
+            ->count();
+
+        return view('makeme.participant.dashboard', compact(
+            'participant',
+            'walletBalance',
+            'products',
+            'availableProducts'
+        ));
     }
 
     public function logout(Request $request)

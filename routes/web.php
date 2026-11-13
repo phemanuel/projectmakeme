@@ -97,9 +97,10 @@ Route::post('/live/invitation', [
     ->name('makeme.invitation.store');
 
 
+
 /*
 |--------------------------------------------------------------------------
-| PARTICIPANT AUTHENTICATION & DASHBOARD
+| PARTICIPANT AUTHENTICATION, DASHBOARD & MARKETPLACE
 |--------------------------------------------------------------------------
 */
 
@@ -108,9 +109,9 @@ Route::prefix('live/participant')
     ->group(function () {
 
         /*
-        |--------------------------------------------------------------
-        | Participant Login
-        |--------------------------------------------------------------
+        |--------------------------------------------------------------------------
+        | Participant Login (Guest Only)
+        |--------------------------------------------------------------------------
         */
 
         Route::middleware('guest:makeme')
@@ -129,11 +130,10 @@ Route::prefix('live/participant')
                     ->name('login.submit');
             });
 
-
         /*
-        |--------------------------------------------------------------
+        |--------------------------------------------------------------------------
         | Protected Participant Routes
-        |--------------------------------------------------------------
+        |--------------------------------------------------------------------------
         */
 
         Route::middleware([
@@ -141,17 +141,79 @@ Route::prefix('live/participant')
             'makeme.participant',
         ])->group(function () {
 
+            /*
+            |--------------------------------------------------------------------------
+            | Dashboard
+            |--------------------------------------------------------------------------
+            */
+
             Route::get('/dashboard', [
                 MakeMeParticipantAuthController::class,
                 'dashboard'
             ])->name('dashboard');
 
+            /*
+            |--------------------------------------------------------------------------
+            | Creative Marketplace
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get('/marketplace', [
+                \App\Http\Controllers\Participant\MakeMeMarketplaceController::class,
+                'index'
+            ])->name('marketplace.index');
+
+            Route::get('/marketplace/{product}', [
+                \App\Http\Controllers\Participant\MakeMeMarketplaceController::class,
+                'show'
+            ])->name('marketplace.show');
+
+            Route::post('/marketplace/{product}/purchase', [
+                \App\Http\Controllers\Participant\MakeMeMarketplaceController::class,
+                'purchase'
+            ])
+                ->middleware('throttle:5,1')
+                ->name('marketplace.purchase');
+
+            /*
+            |--------------------------------------------------------------------------
+            | Participant Orders
+            |--------------------------------------------------------------------------
+            */
+
+            Route::get('/orders', [
+                \App\Http\Controllers\Participant\MakeMeParticipantOrderController::class,
+                'index'
+            ])->name('orders.index');
+
+            Route::get('/orders/{order}', [
+                \App\Http\Controllers\Participant\MakeMeParticipantOrderController::class,
+                'show'
+            ])->name('orders.show');
+
+            /*
+            |--------------------------------------------------------------------------
+            | Kolo Moni
+            |--------------------------------------------------------------------------
+            */
+            Route::get('/kolomoni', [\App\Http\Controllers\Participant\MakeMeParticipantKoloController::class, 'index'])
+            ->name('kolo.index');
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Participant Logout
+            |--------------------------------------------------------------------------
+            */
+
             Route::post('/logout', [
                 MakeMeParticipantAuthController::class,
                 'logout'
             ])->name('logout');
+
         });
     });
+
 
 
 /*
@@ -487,12 +549,22 @@ Route::prefix('admin/live')
         |
         */
 
-        Route::get('/orders', [
-            MakeMeAdminModuleController::class,
-            'orders'
-        ])
+       Route::get('/orders', [\App\Http\Controllers\Admin\MakeMeOrderController::class, 'index'])
             ->middleware('makeme.permission:makeme.orders.view')
             ->name('orders.index');
+
+        Route::post('/orders', [\App\Http\Controllers\Admin\MakeMeOrderController::class, 'store'])
+            ->middleware('makeme.permission:makeme.orders.create')
+            ->name('orders.store');
+
+        Route::post('/orders/{order}/fulfill', [\App\Http\Controllers\Admin\MakeMeOrderController::class, 'fulfill'])
+            ->middleware('makeme.permission:makeme.orders.update-status')
+            ->name('orders.fulfill');
+
+        Route::post('/orders/{order}/cancel', [\App\Http\Controllers\Admin\MakeMeOrderController::class, 'cancel'])
+            ->middleware('makeme.permission:makeme.orders.update-status')
+            ->name('orders.cancel');
+
 
 
         /*
@@ -505,12 +577,14 @@ Route::prefix('admin/live')
         |
         */
 
-        Route::get('/reports', [
-            MakeMeAdminModuleController::class,
-            'reports'
-        ])
+        Route::get('/reports', [\App\Http\Controllers\Admin\MakeMeReportController::class, 'index'])
             ->middleware('makeme.permission:makeme.reports.view')
             ->name('reports.index');
+
+        Route::get('/reports/export', [\App\Http\Controllers\Admin\MakeMeReportController::class, 'export'])
+            ->middleware('makeme.permission:makeme.reports.export')
+            ->name('reports.export');
+
 
     });
 
