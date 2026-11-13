@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Services\MakeMeActivityLogger;
 
 class MakeMeProductController extends Controller
 {
@@ -180,6 +181,21 @@ class MakeMeProductController extends Controller
                         'reason' => 'Initial product stock',
                     ]);
                 }
+
+                MakeMeActivityLogger::record(
+                    'products',
+                    'created',
+                    'Product created',
+                    $product,
+                    [
+                        'product_id' => $product->id,
+                        'name' => $product->name,
+                        'sku' => $product->sku,
+                        'category' => $product->category,
+                        'credit_price' => $product->credit_price,
+                        'initial_stock' => $product->stock_quantity,
+                    ]
+                );
             });
         } catch (\Throwable $exception) {
             if ($imagePath) {
@@ -207,6 +223,17 @@ class MakeMeProductController extends Controller
         $oldImage = $product->image_path;
         $newImage = null;
 
+        $before = $product->only([
+            'name',
+            'sku',
+            'description',
+            'category',
+            'credit_price',
+            'max_per_participant',
+            'is_active',
+            'image_path',
+        ]);
+
         if ($request->hasFile('image')) {
             $newImage = $request->file('image')
                 ->store('makeme/products', 'public');
@@ -216,6 +243,36 @@ class MakeMeProductController extends Controller
 
         try {
             $product->update($data);
+
+            $after = $product->fresh()->only(array_keys($before));
+
+            $changes = [];
+
+            foreach ($before as $field => $oldValue) {
+                $newValue = $after[$field] ?? null;
+
+                if ($oldValue != $newValue) {
+                    $changes[$field] = [
+                        'before' => $oldValue,
+                        'after' => $newValue,
+                    ];
+                }
+            }
+
+            if (!empty($changes)) {
+                MakeMeActivityLogger::record(
+                    'products',
+                    'updated',
+                    'Product updated',
+                    $product,
+                    [
+                        'product_id' => $product->id,
+                        'name' => $product->name,
+                        'changes' => $changes,
+                    ]
+                );
+            }
+
         } catch (\Throwable $exception) {
             if ($newImage) {
                 Storage::disk('public')->delete($newImage);
@@ -290,7 +347,7 @@ class MakeMeProductController extends Controller
             $locked->stock_quantity = $after;
             $locked->save();
 
-            $locked->stockMovements()->create([
+            $movement = $locked->stockMovements()->create([
                 'performed_by' => auth('web')->id(),
                 'type' => $validated['type'],
                 'quantity_before' => $before,
@@ -298,6 +355,24 @@ class MakeMeProductController extends Controller
                 'quantity_after' => $after,
                 'reason' => $validated['reason'],
             ]);
+            
+            MakeMeActivityLogger::record(
+                'stock',
+                'adjusted',
+                'Product stock adjusted',
+                $product,
+                [
+                    'product_id' => $product->id,
+                    'product_name' => $product->name,
+                    'movement_id' => $movement->id,
+                    'adjustment_type' => $movement->type,
+                    'quantity_before' => $movement->quantity_before,
+                    'quantity_after' => $movement->quantity_after,
+                    'quantity_change' => $movement->quantity_change,
+                    'reason' => $movement->reason,
+                ]
+            );
+
         });
 
         return redirect()
@@ -313,6 +388,19 @@ class MakeMeProductController extends Controller
         $product->update([
             'is_active' => false,
         ]);
+
+        MakeMeActivityLogger::record(
+            'products',
+            'archived',
+            'Product archived',
+            $product,
+            [
+                'product_id' => $product->id,
+                'name' => $product->name,
+                'sku' => $product->sku,
+                'is_active' => false,
+            ]
+        );
 
         return redirect()
             ->route('admin.makeme.products.index')

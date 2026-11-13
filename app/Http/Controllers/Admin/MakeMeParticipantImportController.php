@@ -92,6 +92,17 @@ class MakeMeParticipantImportController extends Controller
                     ]);
                     $participant->participant_number = 'MKL-' . str_pad((string) $participant->id, 5, '0', STR_PAD_LEFT);
                     $participant->save();
+
+                    MakeMeActivityLogger::record(
+                        'participants',
+                        'imported',
+                        'Participant import completed',
+                        null,
+                        [
+                            'imported_count' => $importedCount,
+                            'skipped_count' => $skippedCount,
+                        ]
+                    );
                 }
             });
             $this->clearStage($request);

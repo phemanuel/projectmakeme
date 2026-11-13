@@ -455,12 +455,27 @@ Route::prefix('admin/live')
         |
         */
 
+
         Route::get('/wallets', [
-            MakeMeAdminModuleController::class,
-            'wallets'
+            \App\Http\Controllers\Admin\MakeMeWalletController::class,
+            'index'
         ])
-            ->middleware('makeme.permission:makeme.wallets.view')
+            ->middleware(
+                'makeme.permission:makeme.wallets.view'
+            )
             ->name('wallets.index');
+
+
+        Route::post('/wallets/{participant}/adjust', [
+            \App\Http\Controllers\Admin\MakeMeWalletController::class,
+            'adjust'
+        ])
+            ->middleware(
+                'makeme.permission:makeme.wallets.adjust'
+            )
+            ->name('wallets.adjust');
+
+
 
 
         /*

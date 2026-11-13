@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Auth\Notifications\ResetPassword;
 use App\Notifications\MakeMeInvitationNotification;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class MakeMeParticipant extends Authenticatable
 {
@@ -46,6 +47,14 @@ class MakeMeParticipant extends Authenticatable
     {
         $this->notify(
             new MakeMeInvitationNotification($token)
+        );
+    }
+
+    public function wallet()
+    {
+        return $this->hasOne(
+            \App\Models\MakeMeWallet::class,
+            'participant_id'
         );
     }
 

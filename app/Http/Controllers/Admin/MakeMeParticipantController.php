@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Services\MakeMeActivityLogger;
 
 class MakeMeParticipantController extends Controller
 {
@@ -77,6 +78,16 @@ class MakeMeParticipantController extends Controller
             ]);
             $participant->participant_number = 'MKL-' . str_pad((string) $participant->id, 5, '0', STR_PAD_LEFT);
             $participant->save();
+
+            MakeMeActivityLogger::record(
+                'participants',
+                'created',
+                'Participant created',
+                $participant,
+                [
+                    'participant_id' => $participant->getKey(),
+                ]
+            );
         });
         return redirect()->route('admin.makeme.participants.index')->with('success', 'Participant created. Send an activation link after configuring email delivery.');
     }
@@ -93,6 +104,14 @@ class MakeMeParticipantController extends Controller
             'status' => ['required',Rule::in(['active','inactive'])],
         ]);
         $data['email'] = strtolower(trim($data['email']));
+
+        $before = $participant->only([
+            'first_name',
+            'surname',
+            'other_name',
+            'email',
+            'status',
+        ]);
         // Changing email invalidates prior verification and any password reset token.
         if ($data['email'] !== strtolower((string) $participant->email)) {
             $data['email_verified_at'] = null;
@@ -100,6 +119,34 @@ class MakeMeParticipantController extends Controller
         }
         if ($data['status'] === 'active' && !$participant->approved_at) $data['approved_at'] = now();
         $participant->update($data);
+
+        $after = $participant->fresh()->only(array_keys($before));
+
+        $changes = [];
+
+        foreach ($before as $field => $oldValue) {
+            $newValue = $after[$field] ?? null;
+
+            if ($oldValue != $newValue) {
+                $changes[$field] = [
+                    'before' => $oldValue,
+                    'after' => $newValue,
+                ];
+            }
+        }
+
+        if (!empty($changes)) {
+            MakeMeActivityLogger::record(
+                'participants',
+                'updated',
+                'Participant information updated',
+                $participant,
+                [
+                    'participant_id' => $participant->getKey(),
+                    'changes' => $changes,
+                ]
+            );
+        }
         return back()->with('success', 'Participant updated successfully.');
     }
 
@@ -109,6 +156,17 @@ class MakeMeParticipantController extends Controller
         $status = Password::broker('makeme_participants')->sendResetLink(['email' => $participant->email]);
         return back()->with($status === Password::RESET_LINK_SENT ? 'success' : 'error',
             $status === Password::RESET_LINK_SENT ? 'Activation email sent.' : 'Email could not be sent. Check your mail configuration and logs.');
+
+        MakeMeActivityLogger::record(
+            'participants',
+            'invitation_sent',
+            'Participant invitation sent',
+            $participant,
+            [
+                'participant_id' => $participant->getKey(),
+                'delivery_method' => 'email',
+            ]
+        );
     }
 
     public function export(Request $request): StreamedResponse
@@ -135,5 +193,15 @@ class MakeMeParticipantController extends Controller
             'Content-Type'=>'text/csv; charset=UTF-8', 'Cache-Control'=>'private, no-store',
             'X-Content-Type-Options'=>'nosniff',
         ]);
+
+        MakeMeActivityLogger::record(
+            'participants',
+            'exported',
+            'Participant data exported',
+            null,
+            [
+                'format' => 'xlsx',
+            ]
+        );
     }
 }
