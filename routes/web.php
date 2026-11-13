@@ -1,269 +1,523 @@
+
 <?php
 
-use Illuminate\Support\Facades\Route;
-
-use App\Http\Controllers\Admin\MakeMeParticipantController;
-use App\Http\Controllers\MakeMeLoginController;
-use App\Http\Controllers\Admin\MakeMeAdminModuleController;
-use App\Http\Controllers\Admin\MakeMeAdminDashboardController;
-use App\Http\Controllers\Admin\MakeMeProductController;
-use App\Http\Controllers\Admin\MakeMeParticipantImportController;
-use App\Http\Controllers\MakeMeParticipantAuthController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
+
+// Authentication
+use App\Http\Controllers\MakeMeLoginController;
+use App\Http\Controllers\MakeMeParticipantAuthController;
+use App\Http\Controllers\MakeMeInvitationAcceptanceController;
+
+// Project MakeMe Administration
+use App\Http\Controllers\Admin\MakeMeAdminDashboardController;
+use App\Http\Controllers\Admin\MakeMeAdminModuleController;
+use App\Http\Controllers\Admin\MakeMeParticipantController;
+use App\Http\Controllers\Admin\MakeMeParticipantImportController;
+use App\Http\Controllers\Admin\MakeMeProductController;
+
+// Administrative User & Role Management
+use App\Http\Controllers\Admin\AdminUserController;
+use App\Http\Controllers\Admin\AdminRoleController;
 
 
-    //------Reset Password Route
-    Route::get('/forgot-password', function () {
-        return view('auth.forgot-password');
-    })->middleware('guest')->name('password.request');
-    Route::post('/forgot-password', [CustomForgotPasswordController::class, 'forgotPassword'])
-        ->middleware('guest')
-        ->name('password.email');
-    Route::get('/reset-password/{token}/{email}', function ($token,$email) {
-        return view('auth.user-reset-password', ['token' => $token , 'email' => $email]);
-    })->middleware('guest')->name('password.reset');
-    Route::post('/reset-password', [CustomForgotPasswordController::class, 'resetPassword'])
-        ->middleware('guest')
-        ->name('password.update');
+/*
+|--------------------------------------------------------------------------
+| PROJECT MAKEME - PUBLIC ROUTES
+|--------------------------------------------------------------------------
+*/
 
-    /*
-    |--------------------------------------------------------------------------
-    | PROJECT MAKEME LIVE - AUTHENTICATION
-    |--------------------------------------------------------------------------
-    */
-
-    Route::get('/', [
-        MakeMeLoginController::class, 'show'
-    ])->name('makeme.login');
-
-    Route::get('/', [
-        MakeMeLoginController::class, 'show'
-    ])->name('home');
-
-    Route::get('/signin', [
-        MakeMeLoginController::class, 'show'
-    ])->name('makeme.login');
+Route::redirect('/', '/signin')->name('home');
 
 
-    Route::post('/signin', [
-        MakeMeLoginController::class, 'login'
-    ])->name('makeme.login.submit');
+/*
+|--------------------------------------------------------------------------
+| ADMINISTRATOR LOGIN
+|--------------------------------------------------------------------------
+*/
+
+Route::get('/signin', [
+    MakeMeLoginController::class,
+    'show'
+])->name('makeme.login');
+
+Route::post('/signin', [
+    MakeMeLoginController::class,
+    'login'
+])
+    ->middleware('throttle:10,1')
+    ->name('makeme.login.submit');
 
 
-    Route::prefix('makeme-live/participant')->name('makeme.participant.')->group(function () {
-        Route::get('/signin', [MakeMeParticipantAuthController::class, 'showLogin'])->name('login');
-        Route::post('/signin', [MakeMeParticipantAuthController::class, 'login'])->name('login.submit');
-        Route::get('/activate/{token}', [MakeMeParticipantAuthController::class, 'showReset'])->name('password.reset');
-        Route::post('/activate', [MakeMeParticipantAuthController::class, 'reset'])->middleware('throttle:10,1')->name('password.update');
-        Route::middleware(['auth:makeme', 'makeme.participant'])->group(function () {
-            Route::get('/dashboard', [MakeMeParticipantAuthController::class, 'dashboard'])->name('dashboard');
-            Route::post('/logout', [MakeMeParticipantAuthController::class, 'logout'])->name('logout');
-        });
-    });
-    /*
-    |--------------------------------------------------------------------------
-    | PROJECT MAKEME LIVE - PARTICIPANT PORTAL
-    |--------------------------------------------------------------------------
-    */
+/*
+|--------------------------------------------------------------------------
+| PASSWORD RECOVERY - TEMPORARY
+|--------------------------------------------------------------------------
+|
+| This route remains temporary until password recovery
+| functionality is implemented.
+|
+*/
 
-    Route::prefix('makeme-live')
-        ->name('makeme.')
-        ->middleware(['auth', 'makeme.participant'])
-        ->group(function () {
-
-        // Dashboard
-        Route::get('/dashboard', [
-            MakeMeDashboardController::class, 'index'
-        ])->name('dashboard');
-
-        // Shop
-        Route::get('/shop', [
-            MakeMeShopController::class, 'index'
-        ])->name('shop');
-
-        Route::get('/shop/{product}', [
-            MakeMeShopController::class, 'show'
-        ])->name('shop.show');
-
-        // Cart
-        Route::get('/cart', [
-            MakeMeCartController::class, 'index'
-        ])->name('cart');
-
-        Route::post('/cart/add', [
-            MakeMeCartController::class, 'add'
-        ])->name('cart.add');
-
-        Route::patch('/cart/{product}', [
-            MakeMeCartController::class, 'update'
-        ])->name('cart.update');
-
-        Route::delete('/cart/{product}', [
-            MakeMeCartController::class, 'remove'
-        ])->name('cart.remove');
-
-        // Checkout
-        Route::post('/checkout', [
-            MakeMeOrderController::class, 'checkout'
-        ])->name('checkout');
-
-        // Wallet
-        Route::get('/wallet', [
-            MakeMeWalletController::class, 'index'
-        ])->name('wallet');
-
-        // Orders
-        Route::get('/orders', [
-            MakeMeOrderController::class, 'index'
-        ])->name('orders');
-
-        Route::get('/orders/{order}', [
-            MakeMeOrderController::class, 'show'
-        ])->name('orders.show');
-       
-
-    });
+Route::get('/forgot-password', function () {
+    return redirect()
+        ->route('makeme.login')
+        ->with(
+            'error',
+            'Password recovery is not yet configured. Contact your administrator.'
+        );
+})->name('password.request');
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | PROJECT MAKEME LIVE - ADMIN PORTAL
-    |--------------------------------------------------------------------------
-    */
+/*
+|--------------------------------------------------------------------------
+| PARTICIPANT INVITATION & PASSWORD CREATION
+|--------------------------------------------------------------------------
+|
+| Preserve the existing makeme authentication guard.
+|
+*/
 
-    Route::prefix('admin/makeme-live')
-        ->name('admin.makeme.')
-        ->middleware(['auth', 'makeme.admin'])
-        ->group(function () {
+Route::get('/live/invitation/{token}', [
+    MakeMeInvitationAcceptanceController::class,
+    'show'
+])
+    ->middleware('guest:makeme')
+    ->name('makeme.invitation.show');
 
-            // Dashboard
-            Route::get('/', [
-                MakeMeAdminDashboardController::class, 'index'
+Route::post('/live/invitation', [
+    MakeMeInvitationAcceptanceController::class,
+    'store'
+])
+    ->middleware([
+        'guest:makeme',
+        'throttle:10,1',
+    ])
+    ->name('makeme.invitation.store');
+
+
+/*
+|--------------------------------------------------------------------------
+| PARTICIPANT AUTHENTICATION & DASHBOARD
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('live/participant')
+    ->name('makeme.participant.')
+    ->group(function () {
+
+        /*
+        |--------------------------------------------------------------
+        | Participant Login
+        |--------------------------------------------------------------
+        */
+
+        Route::middleware('guest:makeme')
+            ->group(function () {
+
+                Route::get('/', [
+                    MakeMeParticipantAuthController::class,
+                    'showLogin'
+                ])->name('login');
+
+                Route::post('/', [
+                    MakeMeParticipantAuthController::class,
+                    'login'
+                ])
+                    ->middleware('throttle:10,1')
+                    ->name('login.submit');
+            });
+
+
+        /*
+        |--------------------------------------------------------------
+        | Protected Participant Routes
+        |--------------------------------------------------------------
+        */
+
+        Route::middleware([
+            'auth:makeme',
+            'makeme.participant',
+        ])->group(function () {
+
+            Route::get('/dashboard', [
+                MakeMeParticipantAuthController::class,
+                'dashboard'
             ])->name('dashboard');
 
-            // Products
-            Route::resource('products',
-                MakeMeProductController::class
-            );
-
-            // Product categories
-            Route::resource('categories',
-                MakeMeCategoryController::class
-            )->except(['show']);
-
-            // Participants
-            Route::get('/participants', [MakeMeParticipantController::class, 'index'])
-            ->name('participants.index');
-            Route::post('/participants', [MakeMeParticipantController::class, 'store'])
-            ->name('participants.store');
-            Route::get('/participants/export', [MakeMeParticipantController::class, 'export'])
-            ->name('participants.export');
-            Route::get('/participants/import/template', [MakeMeParticipantImportController::class, 'template'])
-            ->name('participants.import.template');
-            Route::post('/participants/import/preview', [MakeMeParticipantImportController::class, 'preview'])
-            ->name('participants.import.preview');
-            Route::post('/participants/import/confirm', [MakeMeParticipantImportController::class, 'confirm'])
-            ->name('participants.import.confirm');
-            Route::patch('/participants/{participant}', [MakeMeParticipantController::class, 'update'])
-            ->name('participants.update');
-            Route::post('/participants/{participant}/invite', [MakeMeParticipantController::class, 'invite'])
-            ->middleware('throttle:5,1')->name('participants.invite');
-
-            // Credit allocation
-            Route::post('/wallets/credit', [
-                MakeMeWalletManagementController::class, 'credit'
-            ])->name('wallets.credit');
-
-            Route::post('/wallets/bulk-credit', [
-                MakeMeWalletManagementController::class, 'bulkCredit'
-            ])->name('wallets.bulk-credit');
-
-            // Order management
-            Route::get('/orders', [
-                MakeMeOrderManagementController::class, 'index'
-            ])->name('orders');
-
-            Route::get('/orders/{order}', [
-                MakeMeOrderManagementController::class, 'show'
-            ])->name('orders.show');
-
-            Route::patch('/orders/{order}/status', [
-                MakeMeOrderManagementController::class, 'updateStatus'
-            ])->name('orders.status');
-
-            // Collection verification
-            Route::post('/orders/{order}/collect', [
-                MakeMeCollectionController::class, 'collect'
-            ])->name('orders.collect');
-
-            // Reports
-            Route::get('/reports', [
-                MakeMeReportController::class, 'index'
-            ])->name('reports');
-
-             Route::get('/participants', [
-                MakeMeParticipantController::class, 'index'
-            ])->name('participants.index');
-
-            Route::get('/participants/create', [
-                MakeMeParticipantController::class, 'create'
-            ])->name('participants.create');
-
-            Route::post('/participants', [
-                MakeMeParticipantController::class, 'store'
-            ])->name('participants.store');
-
-            Route::get('/participants/import/template', [
-                MakeMeParticipantImportController::class, 'template'
-            ])->name('participants.import.template');
-
-            Route::post('/participants/import/preview', [
-                MakeMeParticipantImportController::class, 'preview'
-            ])->name('participants.import.preview');
-
-            Route::post('/participants/import/confirm', [
-                MakeMeParticipantImportController::class, 'confirm'
-            ])->name('participants.import.confirm');
-
-            Route::get('/participants/export', [
-                MakeMeParticipantController::class, 'export'
-            ])->name('participants.export');
-
-            Route::get('/participants/{participant}', [
-                MakeMeParticipantController::class, 'show'
-            ])->name('participants.show');
-
-            Route::patch('/participants/{participant}', [
-                MakeMeParticipantController::class, 'update'
-            ])->name('participants.update');
-
-
-            Route::get('/wallets', [
-                MakeMeAdminModuleController::class, 'wallets'
-            ])->name('wallets.index');
-
-            Route::get('/orders', [
-                MakeMeAdminModuleController::class, 'orders'
-            ])->name('orders.index');
-
-            Route::get('/reports', [
-                MakeMeAdminModuleController::class, 'reports'
-            ])->name('reports.index');
-
+            Route::post('/logout', [
+                MakeMeParticipantAuthController::class,
+                'logout'
+            ])->name('logout');
         });
+    });
 
 
-        Route::post('/makeme-live/logout', function (Request $request) {
+/*
+|--------------------------------------------------------------------------
+| ADMINISTRATIVE USER MANAGEMENT
+|--------------------------------------------------------------------------
+|
+| Super Admin only.
+|
+| The controller also checks that the authenticated administrator
+| has the Super Admin role.
+|
+*/
 
-            Auth::guard('web')->logout();
+Route::prefix('admin/user-management')
+    ->name('admin.users.')
+    ->middleware([
+        'auth:web',
+        'makeme.admin',
+        'makeme.permission:admin.users.view',
+    ])
+    ->group(function () {
 
-            $request->session()->invalidate();
+        // List administrators
+        Route::get('/', [
+            AdminUserController::class,
+            'index'
+        ])->name('index');
 
-            $request->session()->regenerateToken();
+        // Create administrator
+        Route::post('/', [
+            AdminUserController::class,
+            'store'
+        ])
+            ->middleware('makeme.permission:admin.users.create')
+            ->name('store');
 
-            return redirect()->route('makeme.login');
+        // Update administrator
+        Route::put('/{adminUser}', [
+            AdminUserController::class,
+            'update'
+        ])
+            ->middleware('makeme.permission:admin.users.edit')
+            ->name('update');
 
-        })->middleware('auth')->name('makeme.logout');
+        // Activate / Deactivate administrator
+        Route::patch('/{adminUser}/status', [
+            AdminUserController::class,
+            'toggleStatus'
+        ])
+            ->middleware('makeme.permission:admin.users.edit')
+            ->name('status');
+    });
 
 
+/*
+|--------------------------------------------------------------------------
+| ROLES & PERMISSIONS MANAGEMENT
+|--------------------------------------------------------------------------
+|
+| Super Admin only.
+|
+| All role changes are also validated and authorized
+| inside AdminRoleController.
+|
+*/
+
+Route::prefix('admin/role-management')
+    ->name('admin.roles.')
+    ->middleware([
+        'auth:web',
+        'makeme.admin',
+        'makeme.permission:admin.roles.view',
+    ])
+    ->group(function () {
+
+        // List roles
+        Route::get('/', [
+            AdminRoleController::class,
+            'index'
+        ])->name('index');
+
+        // Create role
+        Route::post('/', [
+            AdminRoleController::class,
+            'store'
+        ])
+            ->middleware('makeme.permission:admin.roles.create')
+            ->name('store');
+
+        // Update role and permissions
+        Route::put('/{role}', [
+            AdminRoleController::class,
+            'update'
+        ])
+            ->middleware('makeme.permission:admin.roles.edit')
+            ->name('update');
+
+        // Delete unused custom role
+        Route::delete('/{role}', [
+            AdminRoleController::class,
+            'destroy'
+        ])
+            ->middleware('makeme.permission:admin.roles.delete')
+            ->name('destroy');
+    });
+
+
+/*
+|--------------------------------------------------------------------------
+| PROJECT MAKEME - ADMIN PORTAL
+|--------------------------------------------------------------------------
+|
+| All administrative routes use the existing web guard.
+|
+| makeme.admin:
+|   Validates administrative eligibility.
+|
+| makeme.permission:
+|   Validates permission to access specific modules/actions.
+|
+*/
+
+Route::prefix('admin/live')
+    ->name('admin.makeme.')
+    ->middleware([
+        'auth:web',
+        'makeme.admin',
+    ])
+    ->group(function () {
+
+        /*
+        |--------------------------------------------------------------
+        | DASHBOARD / OVERVIEW
+        |--------------------------------------------------------------
+        */
+
+        Route::get('/', [
+            MakeMeAdminDashboardController::class,
+            'index'
+        ])
+            ->middleware('makeme.permission:makeme.dashboard.view')
+            ->name('dashboard');
+
+
+        /*
+        |--------------------------------------------------------------
+        | PARTICIPANT MANAGEMENT
+        |--------------------------------------------------------------
+        */
+
+        // View participants
+        Route::get('/participants', [
+            MakeMeParticipantController::class,
+            'index'
+        ])
+            ->middleware('makeme.permission:makeme.participants.view')
+            ->name('participants.index');
+
+
+        // Create participant
+        Route::post('/participants', [
+            MakeMeParticipantController::class,
+            'store'
+        ])
+            ->middleware('makeme.permission:makeme.participants.create')
+            ->name('participants.store');
+
+
+        // Export participant records to Excel
+        Route::get('/participants/export', [
+            MakeMeParticipantController::class,
+            'export'
+        ])
+            ->middleware('makeme.permission:makeme.participants.export')
+            ->name('participants.export');
+
+
+        /*
+        |--------------------------------------------------------------
+        | PARTICIPANT EXCEL IMPORT
+        |--------------------------------------------------------------
+        */
+
+        // Download import template
+        Route::get('/participants/import/template', [
+            MakeMeParticipantImportController::class,
+            'template'
+        ])
+            ->middleware('makeme.permission:makeme.participants.import')
+            ->name('participants.import.template');
+
+
+        // Preview uploaded Excel records
+        Route::post('/participants/import/preview', [
+            MakeMeParticipantImportController::class,
+            'preview'
+        ])
+            ->middleware('makeme.permission:makeme.participants.import')
+            ->name('participants.import.preview');
+
+
+        // Confirm participant import
+        Route::post('/participants/import/confirm', [
+            MakeMeParticipantImportController::class,
+            'confirm'
+        ])
+            ->middleware('makeme.permission:makeme.participants.import')
+            ->name('participants.import.confirm');
+
+
+        /*
+        |--------------------------------------------------------------
+        | PARTICIPANT UPDATES & INVITATIONS
+        |--------------------------------------------------------------
+        */
+
+        // Update participant
+        Route::patch('/participants/{participant}', [
+            MakeMeParticipantController::class,
+            'update'
+        ])
+            ->middleware('makeme.permission:makeme.participants.edit')
+            ->name('participants.update');
+
+
+        // Send participant invitation
+        Route::post('/participants/{participant}/invite', [
+            MakeMeParticipantController::class,
+            'invite'
+        ])
+            ->middleware([
+                'makeme.permission:makeme.participants.invite',
+                'throttle:5,1',
+            ])
+            ->name('participants.invite');
+
+
+        /*
+        |--------------------------------------------------------------
+        | PRODUCTS & INVENTORY MANAGEMENT
+        |--------------------------------------------------------------
+        |
+        | Explicit resource routes allow us to assign
+        | permissions to each action individually.
+        |
+        */
+        
+        // Products & Stock
+
+        Route::get('/products', [
+            MakeMeProductController::class, 'index'
+        ])->middleware('makeme.permission:makeme.products.view')
+        ->name('products.index');
+
+        Route::get('/products/create', [
+            MakeMeProductController::class, 'create'
+        ])->middleware('makeme.permission:makeme.products.create')
+        ->name('products.create');
+
+        Route::post('/products', [
+            MakeMeProductController::class, 'store'
+        ])->middleware('makeme.permission:makeme.products.create')
+        ->name('products.store');
+
+        Route::get('/products/{product}/edit', [
+            MakeMeProductController::class, 'edit'
+        ])->middleware('makeme.permission:makeme.products.edit')
+        ->name('products.edit');
+
+        Route::get('/products/{product}', [
+            MakeMeProductController::class, 'show'
+        ])->middleware('makeme.permission:makeme.products.view')
+        ->name('products.show');
+
+        Route::match(['put', 'patch'], '/products/{product}', [
+            MakeMeProductController::class, 'update'
+        ])->middleware('makeme.permission:makeme.products.edit')
+        ->name('products.update');
+
+        Route::post('/products/{product}/stock', [
+            MakeMeProductController::class, 'adjustStock'
+        ])->middleware('makeme.permission:makeme.products.stock.adjust')
+        ->name('products.stock.adjust');
+
+        Route::delete('/products/{product}', [
+            MakeMeProductController::class, 'destroy'
+        ])->middleware('makeme.permission:makeme.products.delete')
+        ->name('products.destroy');
+
+
+
+        /*
+        |--------------------------------------------------------------
+        | WALLET MANAGEMENT
+        |--------------------------------------------------------------
+        |
+        | Only the wallet listing exists in the supplied routes.
+        | Financial adjustment routes must be secured separately
+        | when they are implemented.
+        |
+        */
+
+        Route::get('/wallets', [
+            MakeMeAdminModuleController::class,
+            'wallets'
+        ])
+            ->middleware('makeme.permission:makeme.wallets.view')
+            ->name('wallets.index');
+
+
+        /*
+        |--------------------------------------------------------------
+        | ORDER MANAGEMENT
+        |--------------------------------------------------------------
+        |
+        | Only the order listing exists currently.
+        |
+        */
+
+        Route::get('/orders', [
+            MakeMeAdminModuleController::class,
+            'orders'
+        ])
+            ->middleware('makeme.permission:makeme.orders.view')
+            ->name('orders.index');
+
+
+        /*
+        |--------------------------------------------------------------
+        | REPORTS & ANALYTICS
+        |--------------------------------------------------------------
+        |
+        | Report export routes should require
+        | makeme.reports.export when implemented.
+        |
+        */
+
+        Route::get('/reports', [
+            MakeMeAdminModuleController::class,
+            'reports'
+        ])
+            ->middleware('makeme.permission:makeme.reports.view')
+            ->name('reports.index');
+
+    });
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMINISTRATOR LOGOUT
+|--------------------------------------------------------------------------
+|
+| Preserve the existing web guard and route name.
+|
+*/
+
+Route::post('/live/logout', function (Request $request) {
+
+    Auth::guard('web')->logout();
+
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+
+    return redirect()->route('makeme.login');
+
+})
+    ->middleware('auth:web')
+    ->name('makeme.logout');

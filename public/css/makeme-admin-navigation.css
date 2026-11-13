@@ -118,3 +118,20 @@
 .makeme-dropdown-logout:hover {
     background: rgba(255, 80, 80, .1);
 }
+
+/* ==========================================
+   STICKY ADMIN HEADER
+========================================== */
+
+.main-area {
+    min-width: 0;
+}
+
+.main-area > .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #ffffff;
+    width: 100%;
+    box-sizing: border-box;
+}

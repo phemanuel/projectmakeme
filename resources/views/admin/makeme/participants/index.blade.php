@@ -1,12 +1,47 @@
 @extends('admin.makeme.layouts.app')
 @section('title', 'Participants')
 @section('content')
+
+@php
+    $admin = auth('web')->user();
+
+    $isSuperAdmin = $admin->hasRole('Super Admin', 'web');
+
+    $canCreate = $isSuperAdmin ||
+        $admin->can('makeme.participants.create');
+
+    $canEdit = $isSuperAdmin ||
+        $admin->can('makeme.participants.edit');
+
+    $canImport = $isSuperAdmin ||
+        $admin->can('makeme.participants.import');
+
+    $canExport = $isSuperAdmin ||
+        $admin->can('makeme.participants.export');
+
+    $canInvite = $isSuperAdmin ||
+        $admin->can('makeme.participants.invite');
+
+    $canDelete = $isSuperAdmin ||
+        $admin->can('makeme.participants.delete');
+@endphp
 <section class="page-intro">
     <div><div class="intro-kicker"><span class="live-dot"></span> SHOW OPERATIONS / PARTICIPANTS</div><h1>Participant Management<span class="gold-period">.</span></h1><p>Manage independent Project MakeMe Live contestants.</p></div>
     <div class="intro-actions">
-        <a class="btn btn-outline" href="{{ route('admin.makeme.participants.export', request()->only(['search','skill','status'])) }}">↓ Export CSV</a>
-        <button type="button" class="btn btn-outline" data-open-modal="importModal">↥ Import Excel</button>
-        <button type="button" class="btn btn-gold" data-open-modal="addModal">+ Add participant</button>
+        @if($canExport)
+            <a class="btn btn-outline" href="{{ route('admin.makeme.participants.export', request()->only(['search','skill','status'])) }}">↓ Export CSV</a>
+        @endif
+        
+        @if($canImport)
+          <button type="button" class="btn btn-outline" data-open-modal="importModal">↥ Import Excel</button>
+        @endif
+        
+        @if($canCreate)
+
+          <button type="button" class="btn btn-gold" data-open-modal="addModal">+ Add participant</button>
+
+        @endif
+        
     </div>
 </section>
 @if(session('success'))<div class="notice success">✓ {{ session('success') }}</div>@endif
@@ -35,7 +70,11 @@
    <td><span class="status {{ $participant->status === 'active' ? 'status-active' : 'status-inactive' }}">{{ ucfirst($participant->status) }}</span></td>
    <td>{{ $participant->email_verified_at ? 'Activated' : 'Not activated' }}</td>
    <td class="right"><div class="makeme-action-row">
-      <button type="button" class="table-action js-edit" data-url="{{ route('admin.makeme.participants.update',$participant) }}" data-first="{{ $participant->first_name }}" data-last="{{ $participant->surname }}" data-other="{{ $participant->other_name }}" data-email="{{ $participant->email }}" data-phone="{{ $participant->mobile_no }}" data-skill="{{ $participant->skill_category }}" data-status="{{ $participant->status }}">Edit</button>
+    @if($canEdit)
+
+    <button type="button" class="table-action js-edit" data-url="{{ route('admin.makeme.participants.update',$participant) }}" data-first="{{ $participant->first_name }}" data-last="{{ $participant->surname }}" data-other="{{ $participant->other_name }}" data-email="{{ $participant->email }}" data-phone="{{ $participant->mobile_no }}" data-skill="{{ $participant->skill_category }}" data-status="{{ $participant->status }}">Edit</button>
+    @endif
+      
       @if(!$participant->email_verified_at && $participant->status === 'active')
       <form method="POST" action="{{ route('admin.makeme.participants.invite',$participant) }}">@csrf<button type="submit" class="table-action">Send invitation</button></form>
       @endif

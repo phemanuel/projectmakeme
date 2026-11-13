@@ -4,92 +4,369 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\MakeMeProduct;
+use App\Models\MakeMeStockMovement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class MakeMeProductController extends Controller
 {
     private const CATEGORIES = [
-        'general', 'fashion_designing', 'shoe_making', 'hair_styling',
-        'photography', 'makeup_artistry',
+        'general',
+        'fashion_designing',
+        'shoe_making',
+        'hair_styling',
+        'photography',
+        'makeup_artistry',
+        'modelling',
     ];
+
+    private function authorizeAction(string $permission): void
+    {
+        $user = auth('web')->user();
+
+        abort_unless(
+            $user &&
+            (int) $user->user_type === 1 &&
+            (int) $user->user_status === 1 &&
+            $user->applicant_type !== 'WAITLIST' &&
+            (
+                $user->hasRole('Super Admin', 'web') ||
+                $user->can($permission)
+            ),
+            403
+        );
+    }
 
     public function index(Request $request)
     {
+        $this->authorizeAction('makeme.products.view');
+
         $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
-            'category' => ['nullable', Rule::in(self::CATEGORIES)],
-            'status' => ['nullable', Rule::in(['active', 'inactive'])],
+            'category' => [
+                'nullable',
+                Rule::in(self::CATEGORIES),
+            ],
+            'status' => [
+                'nullable',
+                Rule::in([
+                    'active',
+                    'inactive',
+                    'low_stock',
+                    'out_of_stock',
+                ]),
+            ],
         ]);
+
         $products = MakeMeProduct::query()
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = $request->input('q');
-                $query->where(fn ($q) => $q->where('name', 'like', "%{$term}%")
-                    ->orWhere('sku', 'like', "%{$term}%"));
+
+                $query->where(function ($q) use ($term) {
+                    $q->where('name', 'like', "%{$term}%")
+                        ->orWhere('sku', 'like', "%{$term}%");
+                });
             })
-            ->when($request->filled('category'), fn ($q) => $q->where('category', $request->category))
-            ->when($request->filled('status'), fn ($q) => $q->where('is_active', $request->status === 'active'))
-            ->latest('id')->paginate(15)->withQueryString();
+            ->when($request->filled('category'), function ($query) use ($request) {
+                $query->where('category', $request->category);
+            })
+            ->when($request->filled('status'), function ($query) use ($request) {
+                match ($request->status) {
+                    'active' => $query->where('is_active', true),
+                    'inactive' => $query->where('is_active', false),
+                    'low_stock' => $query
+                        ->where('stock_quantity', '>', 0)
+                        ->where('stock_quantity', '<=', 5),
+                    'out_of_stock' => $query
+                        ->where('stock_quantity', 0),
+                    default => null,
+                };
+            })
+            ->latest('id')
+            ->paginate(15)
+            ->withQueryString();
 
         $stats = [
             'total' => MakeMeProduct::count(),
             'active' => MakeMeProduct::where('is_active', true)->count(),
-            'low_stock' => MakeMeProduct::where('stock_quantity', '<=', 5)->count(),
+            'available_units' => MakeMeProduct::sum('stock_quantity'),
+            'low_stock' => MakeMeProduct::whereBetween(
+                'stock_quantity',
+                [1, 5]
+            )->count(),
+            'out_of_stock' => MakeMeProduct::where(
+                'stock_quantity',
+                0
+            )->count(),
         ];
 
-        return view('admin.makeme.products.index', compact('products', 'stats'));
+        $categories = self::CATEGORIES;
+
+        $movements = MakeMeStockMovement::query()
+            ->with(['product', 'administrator'])
+            ->latest('id')
+            ->limit(20)
+            ->get();
+
+        return view('admin.makeme.products.index', compact(
+            'products',
+            'stats',
+            'categories',
+            'movements'
+        ));
     }
 
+    // Preserve old resource URLs; all forms are now modals.
     public function create()
     {
-        $product = new MakeMeProduct();
-        return view('admin.makeme.products.form', compact('product'));
-    }
+        $this->authorizeAction('makeme.products.create');
 
-    public function store(Request $request)
-    {
-        $data = $this->validated($request);
-        $data['is_active'] = $request->boolean('is_active');
-        if ($request->hasFile('image')) {
-            $data['image_path'] = $request->file('image')->store('makeme/products', 'public');
-        }
-        unset($data['image']);
-        MakeMeProduct::create($data);
-        return redirect()->route('admin.makeme.products.index')->with('success', 'Product created.');
+        return redirect()->route('admin.makeme.products.index');
     }
 
     public function edit(MakeMeProduct $product)
     {
-        return view('admin.makeme.products.form', compact('product'));
+        $this->authorizeAction('makeme.products.edit');
+
+        return redirect()->route('admin.makeme.products.index', [
+            'q' => $product->sku,
+        ]);
+    }
+
+    public function show(MakeMeProduct $product)
+    {
+        $this->authorizeAction('makeme.products.view');
+
+        return redirect()->route('admin.makeme.products.index', [
+            'q' => $product->sku,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $this->authorizeAction('makeme.products.create');
+
+        $data = $this->validatedProduct($request, true);
+
+        $initialStock = (int) $data['stock_quantity'];
+
+        $data['is_active'] = $request->boolean('is_active');
+
+        unset($data['image']);
+
+        $imagePath = null;
+
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')
+                ->store('makeme/products', 'public');
+
+            $data['image_path'] = $imagePath;
+        }
+
+        try {
+            DB::transaction(function () use ($data, $initialStock) {
+                $product = MakeMeProduct::create($data);
+
+                if ($initialStock > 0) {
+                    $product->stockMovements()->create([
+                        'performed_by' => auth('web')->id(),
+                        'type' => 'initial',
+                        'quantity_before' => 0,
+                        'quantity_change' => $initialStock,
+                        'quantity_after' => $initialStock,
+                        'reason' => 'Initial product stock',
+                    ]);
+                }
+            });
+        } catch (\Throwable $exception) {
+            if ($imagePath) {
+                Storage::disk('public')->delete($imagePath);
+            }
+
+            throw $exception;
+        }
+
+        return redirect()
+            ->route('admin.makeme.products.index')
+            ->with('success', 'Product created successfully.');
     }
 
     public function update(Request $request, MakeMeProduct $product)
     {
-        $data = $this->validated($request, $product);
+        $this->authorizeAction('makeme.products.edit');
+
+        $data = $this->validatedProduct($request, false);
+
         $data['is_active'] = $request->boolean('is_active');
-        if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('makeme/products', 'public');
-            $data['image_path'] = $path;
-            if ($product->image_path) Storage::disk('public')->delete($product->image_path);
-        }
+
         unset($data['image']);
-        $product->update($data);
-        return redirect()->route('admin.makeme.products.index')->with('success', 'Product updated.');
+
+        $oldImage = $product->image_path;
+        $newImage = null;
+
+        if ($request->hasFile('image')) {
+            $newImage = $request->file('image')
+                ->store('makeme/products', 'public');
+
+            $data['image_path'] = $newImage;
+        }
+
+        try {
+            $product->update($data);
+        } catch (\Throwable $exception) {
+            if ($newImage) {
+                Storage::disk('public')->delete($newImage);
+            }
+
+            throw $exception;
+        }
+
+        if ($newImage && $oldImage) {
+            Storage::disk('public')->delete($oldImage);
+        }
+
+        return redirect()
+            ->route('admin.makeme.products.index')
+            ->with('success', 'Product updated successfully.');
     }
 
-    private function validated(Request $request, ?MakeMeProduct $product = null): array
+    public function adjustStock(Request $request, MakeMeProduct $product)
     {
-        return $request->validate([
-            'name' => ['required', 'string', 'max:180'],
-            'sku' => ['required', 'string', 'max:80', Rule::unique('makeme_products', 'sku')->ignore($product?->id)],
-            'description' => ['nullable', 'string', 'max:4000'],
-            'category' => ['required', Rule::in(self::CATEGORIES)],
-            'credit_price' => ['required', 'integer', 'min:0', 'max:999999999'],
-            'stock_quantity' => ['required', 'integer', 'min:0', 'max:999999999'],
-            'max_per_participant' => ['nullable', 'integer', 'min:1', 'max:1000'],
-            'image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:3072'],
-            'is_active' => ['nullable', 'boolean'],
+        $this->authorizeAction('makeme.products.stock.adjust');
+
+        $validated = $request->validate([
+            'type' => [
+                'required',
+                Rule::in(['add', 'remove', 'set']),
+            ],
+            'quantity' => [
+                'required',
+                'integer',
+                'min:0',
+                'max:999999999',
+            ],
+            'reason' => [
+                'required',
+                'string',
+                'max:255',
+            ],
         ]);
+
+        DB::transaction(function () use ($product, $validated) {
+            $locked = MakeMeProduct::query()
+                ->lockForUpdate()
+                ->findOrFail($product->id);
+
+            $before = (int) $locked->stock_quantity;
+            $quantity = (int) $validated['quantity'];
+
+            $after = match ($validated['type']) {
+                'add' => $before + $quantity,
+                'remove' => $before - $quantity,
+                'set' => $quantity,
+            };
+
+            if ($after < 0) {
+                throw ValidationException::withMessages([
+                    'quantity' => 'Cannot remove more stock than is available.',
+                ]);
+            }
+
+            if ($after > 999999999) {
+                throw ValidationException::withMessages([
+                    'quantity' => 'Stock quantity exceeds the allowed maximum.',
+                ]);
+            }
+
+            if ($after === $before) {
+                throw ValidationException::withMessages([
+                    'quantity' => 'The stock quantity must change.',
+                ]);
+            }
+
+            $locked->stock_quantity = $after;
+            $locked->save();
+
+            $locked->stockMovements()->create([
+                'performed_by' => auth('web')->id(),
+                'type' => $validated['type'],
+                'quantity_before' => $before,
+                'quantity_change' => abs($after - $before),
+                'quantity_after' => $after,
+                'reason' => $validated['reason'],
+            ]);
+        });
+
+        return redirect()
+            ->route('admin.makeme.products.index')
+            ->with('success', 'Stock adjusted successfully.');
+    }
+
+    public function destroy(MakeMeProduct $product)
+    {
+        $this->authorizeAction('makeme.products.delete');
+
+        // Archive rather than permanently delete product/order history.
+        $product->update([
+            'is_active' => false,
+        ]);
+
+        return redirect()
+            ->route('admin.makeme.products.index')
+            ->with('success', 'Product archived successfully.');
+    }
+
+    private function validatedProduct(
+        Request $request,
+        bool $creating
+    ): array {
+        $rules = [
+            'name' => [
+                'required', 'string', 'max:180',
+            ],
+            'sku' => [
+                'required', 'string', 'max:80',
+                Rule::unique('makeme_products', 'sku')
+                    ->ignore(
+                        $creating ? null : $request->route('product')?->id
+                    ),
+            ],
+            'description' => [
+                'nullable', 'string', 'max:4000',
+            ],
+            'category' => [
+                'required',
+                Rule::in(self::CATEGORIES),
+            ],
+            'credit_price' => [
+                'required', 'integer', 'min:0', 'max:999999999',
+            ],
+            'max_per_participant' => [
+                'nullable', 'integer', 'min:1', 'max:1000',
+            ],
+            'image' => [
+                'nullable',
+                'image',
+                'mimes:jpeg,png,webp',
+                'max:3072',
+            ],
+            'is_active' => [
+                'nullable', 'boolean',
+            ],
+        ];
+
+        if ($creating) {
+            $rules['stock_quantity'] = [
+                'required',
+                'integer',
+                'min:0',
+                'max:999999999',
+            ];
+        }
+
+        return $request->validate($rules);
     }
 }

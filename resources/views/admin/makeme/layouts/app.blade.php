@@ -26,14 +26,100 @@
             <span><strong>PROJECT MAKEME</strong><small>LIVE SHOW · ADMIN</small></span>
         </a>
         <div class="nav-caption">MANAGEMENT</div>
+        
         <nav class="side-nav">
-            <a class="nav-link {{ request()->routeIs('admin.makeme.dashboard') ? 'is-active' : '' }}" href="{{ route('admin.makeme.dashboard') }}"><span class="nav-icon">◫</span> Overview</a>
-            <a class="nav-link {{ request()->routeIs('admin.makeme.participants.*') ? 'is-active' : '' }}" href="{{ route('admin.makeme.participants.index') }}"><span class="nav-icon">◎</span> Participants</a>
-            <a class="nav-link {{ request()->routeIs('admin.makeme.products.*') ? 'is-active' : '' }}" href="{{ route('admin.makeme.products.index') }}"><span class="nav-icon">▦</span> Products &amp; Stock</a>
-            <a class="nav-link {{ request()->routeIs('admin.makeme.wallets.*') ? 'is-active' : '' }}" href="{{ route('admin.makeme.wallets.index') }}"><span class="nav-icon">◈</span> Wallets</a>
-            <a class="nav-link {{ request()->routeIs('admin.makeme.orders.*') ? 'is-active' : '' }}" href="{{ route('admin.makeme.orders.index') }}"><span class="nav-icon">▤</span> Orders</a>
-            <a class="nav-link {{ request()->routeIs('admin.makeme.reports.*') ? 'is-active' : '' }}" href="{{ route('admin.makeme.reports.index') }}"><span class="nav-icon">▥</span> Reports</a>
+
+            @php
+                $admin = auth()->user();
+
+                $isActiveAdmin = $admin
+                    && (int) $admin->user_type === 1
+                    && (int) $admin->user_status === 1
+                    && $admin->applicant_type !== 'WAITLIST';
+
+                $isSuperAdmin = $isActiveAdmin
+                    && $admin->hasRole('Super Admin');
+
+                $canAccess = function (string $permission) use (
+                    $admin,
+                    $isActiveAdmin,
+                    $isSuperAdmin
+                ): bool {
+                    return $isActiveAdmin && (
+                        $isSuperAdmin ||
+                        $admin->can($permission)
+                    );
+                };
+            @endphp
+
+            @if($canAccess('makeme.dashboard.view'))
+                <a class="nav-link {{ request()->routeIs('admin.makeme.dashboard') ? 'is-active' : '' }}"
+                href="{{ route('admin.makeme.dashboard') }}">
+                    <span class="nav-icon">◫</span>
+                    Overview
+                </a>
+            @endif
+
+            @if($canAccess('makeme.participants.view'))
+                <a class="nav-link {{ request()->routeIs('admin.makeme.participants.*') ? 'is-active' : '' }}"
+                href="{{ route('admin.makeme.participants.index') }}">
+                    <span class="nav-icon">◎</span>
+                    Participants
+                </a>
+            @endif
+
+            @if($canAccess('makeme.products.view'))
+                <a class="nav-link {{ request()->routeIs('admin.makeme.products.*') ? 'is-active' : '' }}"
+                href="{{ route('admin.makeme.products.index') }}">
+                    <span class="nav-icon">▦</span>
+                    Products &amp; Stock
+                </a>
+            @endif
+
+            @if($canAccess('makeme.wallets.view'))
+                <a class="nav-link {{ request()->routeIs('admin.makeme.wallets.*') ? 'is-active' : '' }}"
+                href="{{ route('admin.makeme.wallets.index') }}">
+                    <span class="nav-icon">◈</span>
+                    Wallets
+                </a>
+            @endif
+
+            @if($canAccess('makeme.orders.view'))
+                <a class="nav-link {{ request()->routeIs('admin.makeme.orders.*') ? 'is-active' : '' }}"
+                href="{{ route('admin.makeme.orders.index') }}">
+                    <span class="nav-icon">▤</span>
+                    Orders
+                </a>
+            @endif
+
+            @if($canAccess('makeme.reports.view'))
+                <a class="nav-link {{ request()->routeIs('admin.makeme.reports.*') ? 'is-active' : '' }}"
+                href="{{ route('admin.makeme.reports.index') }}">
+                    <span class="nav-icon">▥</span>
+                    Reports
+                </a>
+            @endif
+
+            @if($isSuperAdmin)
+                <div class="nav-caption">
+                    SYSTEM ADMINISTRATION
+                </div>
+
+                <a class="nav-link {{ request()->routeIs('admin.users.*') ? 'is-active' : '' }}"
+                href="{{ route('admin.users.index') }}">
+                    <span class="nav-icon">♙</span>
+                    Admin Users
+                </a>
+
+                <a class="nav-link {{ request()->routeIs('admin.roles.*') ? 'is-active' : '' }}"
+                href="{{ route('admin.roles.index') }}">
+                    <span class="nav-icon">⚿</span>
+                    Roles &amp; Permissions
+                </a>
+            @endif
+
         </nav>
+
         <div class="sidebar-bottom"><span class="live-dot"></span> NYFEW · Reality TV Show</div>
     </aside>
     <div class="sidebar-shade" id="sidebarShade"></div>
@@ -60,7 +146,9 @@
                         <strong>
                             {{ auth()->user()->first_name ?? 'Administrator' }}
                         </strong>
-                        <small>Administrator</small>
+                        <small>
+                            {{ auth()->user()->getRoleNames()->first() ?? 'Administrator' }}
+                        </small>
                     </span>
 
                     <span class="makeme-dropdown-arrow">⌄</span>

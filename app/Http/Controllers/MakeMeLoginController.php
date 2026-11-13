@@ -73,21 +73,30 @@ class MakeMeLoginController extends Controller
 
     private function destination(User $user): ?string
     {
-        if ((int) $user->user_status !== 1 || $user->applicant_type === 'WAITLIST') {
+        if (
+            (int) $user->user_status !== 1 ||
+            $user->applicant_type === 'WAITLIST'
+        ) {
             return null;
         }
 
-        // Admins manage the portal using their existing NYFEW account.
+        // Administrator access
         if ((int) $user->user_type === 1) {
-            return 'admin.makeme.participants.index';
+
+            if ($user->can('makeme.participants.view')) {
+                return 'admin.makeme.participants.index';
+            }
+
+            return null;
         }
 
-        // Only active, email-verified participants can shop.
+        // Participant access
         if (
             (int) $user->email_verified_status === 1 &&
-            $user->makeMeParticipant()->where('status', 'active')->exists()
+            $user->makeMeParticipant()
+                ->where('status', 'active')
+                ->exists()
         ) {
-            // Until the participant-specific dashboard is built, use the existing one.
             return 'user-dashboard';
         }
 
