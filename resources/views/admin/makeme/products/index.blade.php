@@ -19,6 +19,7 @@
 
     $categoryLabels = [
         'general' => 'General',
+        'groceries' => 'Groceries',
         'fashion_designing' => 'Fashion Designing',
         'shoe_making' => 'Shoe Making',
         'hair_styling' => 'Hair Styling',
@@ -139,6 +140,7 @@
                         $payload = [
                             'id' => $product->id,
                             'name' => $product->name,
+                            'unit_label' => $product->unit_label,
                             'sku' => $product->sku,
                             'description' => $product->description,
                             'category' => $product->category,
@@ -147,7 +149,7 @@
                             'max_per_participant' => $product->max_per_participant,
                             'is_active' => (bool) $product->is_active,
                             'image_url' => $product->image_path
-                                ? asset('storage/' . $product->image_path)
+                                ? \Illuminate\Support\Facades\Storage::disk('public')->url(ltrim($product->image_path, '/'))
                                 : null,
                             'update_url' => route('admin.makeme.products.update', $product),
                             'stock_url' => route('admin.makeme.products.stock.adjust', $product),
@@ -159,7 +161,7 @@
                         <td>
                             <div class="pm-product">
                                 @if($product->image_path)
-                                    <img src="{{ asset('storage/' . $product->image_path) }}"
+                                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url(ltrim($product->image_path, '/')) }}"
                                          alt="{{ $product->name }}">
                                 @else
                                     <div class="pm-placeholder">▦</div>
@@ -167,6 +169,9 @@
 
                                 <div>
                                     <strong>{{ $product->name }}</strong>
+                                    @if($product->unit_label)
+                                        <small>{{ $product->unit_label }}</small>
+                                    @endif
                                     <small>{{ $product->sku }}</small>
                                 </div>
                             </div>
@@ -330,6 +335,13 @@
                     <div class="pm-field">
                         <label>Product Name *</label>
                         <input name="name" id="pmName" maxlength="180" required>
+                    </div>
+
+                    <div class="pm-field">
+                        <label for="pmUnitLabel">Unit / Package Size</label>
+                        <input name="unit_label" id="pmUnitLabel" maxlength="100"
+                               placeholder="e.g. 5kg Bag, 500g Pack, 1 Tuber">
+                        <small>What does one purchased unit contain?</small>
                     </div>
 
                     <div class="pm-field">
@@ -505,4 +517,45 @@
 
 @push('scripts')
 <script src="{{ asset('js/makeme-admin-products.js') }}"></script>
+<script>
+// Supplements the existing product-modal script without replacing its handlers.
+document.addEventListener('DOMContentLoaded', function () {
+    const unitInput = document.getElementById('pmUnitLabel');
+    if (!unitInput) return;
+
+    document.addEventListener('click', function (event) {
+        const edit = event.target.closest('[data-pm-edit]');
+        if (edit) {
+            const productId = edit.getAttribute('data-pm-edit');
+            const payloadNode = document.getElementById('pmProduct' + productId);
+            if (!payloadNode) return;
+            try {
+                const payload = JSON.parse(payloadNode.textContent);
+                queueMicrotask(function () {
+                    unitInput.value = payload.unit_label ?? '';
+                });
+            } catch (error) {
+                console.error('Could not read product details', error);
+            }
+            return;
+        }
+
+        if (event.target.closest('[data-pm-open="pmCreateModal"]')) {
+            queueMicrotask(function () { unitInput.value = ''; });
+        }
+    });
+
+    const validation = document.getElementById('pmValidation');
+    if (validation && validation.dataset.modal === 'product') {
+        try {
+            const values = JSON.parse(validation.dataset.values || '{}');
+            if (Object.prototype.hasOwnProperty.call(values, 'unit_label')) {
+                unitInput.value = values.unit_label ?? '';
+            }
+        } catch (error) {
+            console.error('Could not restore product input', error);
+        }
+    }
+});
+</script>
 @endpush

@@ -23,38 +23,76 @@ class MakeMeMarketplaceController extends Controller
         $participant = auth('makeme')->user();
         abort_unless($participant && $participant->status === 'active', 403);
 
+        
         $products = MakeMeProduct::query()
+            ->visibleToParticipant($participant)
             ->where('is_active', true)
             ->where('stock_quantity', '>', 0)
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = trim((string) $request->input('q'));
-                $query->where(fn ($q) => $q->where('name', 'like', "%{$term}%")
-                    ->orWhere('category', 'like', "%{$term}%")
-                    ->orWhere('description', 'like', "%{$term}%"));
+
+                $query->where(function ($q) use ($term) {
+                    $q->where('name', 'like', "%{$term}%")
+                        ->orWhere('category', 'like', "%{$term}%")
+                        ->orWhere('description', 'like', "%{$term}%");
+                });
             })
             ->orderBy('name')
-            ->paginate(12)->withQueryString();
+            ->paginate(12)
+            ->withQueryString();
+
 
         $walletBalance = (int) (MakeMeWallet::where('participant_id', $participant->getKey())->value('balance') ?? 0);
         return view('makeme.participant.marketplace.index', compact('products', 'walletBalance'));
     }
 
+    
     public function show(MakeMeProduct $product)
     {
         $participant = auth('makeme')->user();
-        abort_unless($participant && $participant->status === 'active', 403);
-        abort_unless($product->is_active, 404);
 
-        $walletBalance = (int) (MakeMeWallet::where('participant_id', $participant->getKey())->value('balance') ?? 0);
+        abort_unless(
+            $participant && $participant->status === 'active',
+            403
+        );
+
+        // Ensure this participant is allowed to view the product.
+        $product = MakeMeProduct::query()
+            ->visibleToParticipant($participant)
+            ->where('is_active', true)
+            ->findOrFail($product->getKey());
+
+        $walletBalance = (int) (
+            MakeMeWallet::where(
+                'participant_id',
+                $participant->getKey()
+            )->value('balance') ?? 0
+        );
+
         $alreadyOrdered = (int) MakeMeOrderItem::query()
-            ->join('makeme_orders', 'makeme_orders.id', '=', 'makeme_order_items.order_id')
-            ->where('makeme_orders.participant_id', $participant->getKey())
+            ->join(
+                'makeme_orders',
+                'makeme_orders.id',
+                '=',
+                'makeme_order_items.order_id'
+            )
+            ->where(
+                'makeme_orders.participant_id',
+                $participant->getKey()
+            )
             ->where('makeme_orders.status', '!=', 'cancelled')
-            ->where('makeme_order_items.product_id', $product->getKey())
+            ->where(
+                'makeme_order_items.product_id',
+                $product->getKey()
+            )
             ->sum('makeme_order_items.quantity');
 
-        return view('makeme.participant.marketplace.show', compact('product', 'walletBalance', 'alreadyOrdered'));
+        return view(
+            'makeme.participant.marketplace.show',
+            compact('product', 'walletBalance', 'alreadyOrdered')
+        );
     }
+
 
     public function purchase(Request $request, MakeMeProduct $product)
     {
@@ -86,7 +124,13 @@ class MakeMeMarketplaceController extends Controller
             $wallet = MakeMeWallet::where('participant_id', $participantId)->lockForUpdate()->first();
             if (!$wallet) throw ValidationException::withMessages(['quantity' => 'Your Kolo Money wallet is not available.']);
 
-            $lockedProduct = MakeMeProduct::query()->lockForUpdate()->findOrFail($product->getKey());
+            
+            $lockedProduct = MakeMeProduct::query()
+                ->visibleToParticipant($participant)
+                ->where('is_active', true)
+                ->lockForUpdate()
+                ->findOrFail($product->getKey());
+
             $quantity = (int) $validated['quantity'];
             if (!$lockedProduct->is_active || (int) $lockedProduct->stock_quantity < $quantity) {
                 throw ValidationException::withMessages(['quantity' => 'This quantity is no longer available.']);

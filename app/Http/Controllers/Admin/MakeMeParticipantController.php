@@ -106,37 +106,178 @@ class MakeMeParticipantController extends Controller
         return $data;
     }
 
+    
     public function store(Request $request)
     {
-        $data = $this->validatedProfile($request);
-        $photoPath = null;
+        $data = $request->validate([
+            'first_name' => ['required', 'string', 'max:100'],
+            'surname' => ['required', 'string', 'max:100'],
+            'other_name' => ['nullable', 'string', 'max:100'],
 
-        try {
-            if ($request->hasFile('photo')) {
-                $photoPath = $request->file('photo')->store('makeme/contestants', 'public');
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+            ],
+
+            'mobile_no' => [
+                'required',
+                'string',
+                'regex:/^[+0-9() .-]{7,25}$/',
+            ],
+
+            'skill_category' => [
+                'required',
+                Rule::in(array_keys(self::SKILLS)),
+            ],
+
+            'status' => [
+                'required',
+                Rule::in(['active', 'inactive']),
+            ],
+
+            'business_name' => ['nullable', 'string', 'max:180'],
+            'profession' => ['nullable', 'string', 'max:150'],
+            'age' => ['nullable', 'integer', 'between:1,120'],
+            'city' => ['nullable', 'string', 'max:120'],
+            'state_of_origin' => ['nullable', 'string', 'max:120'],
+            'alternative_email' => ['nullable', 'email', 'max:255'],
+
+            'instagram_handle' => ['nullable', 'string', 'max:150'],
+            'tiktok_handle' => ['nullable', 'string', 'max:150'],
+            'facebook_handle' => ['nullable', 'string', 'max:255'],
+            'x_handle' => ['nullable', 'string', 'max:255'],
+            'linkedin_handle' => ['nullable', 'string', 'max:255'],
+
+            'photo' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:3072',
+            ],
+        ]);
+
+        $data['email'] = strtolower(trim($data['email']));
+
+        $photo = $request->file('photo');
+        unset($data['photo']);
+
+        $result = DB::transaction(function () use ($data, $photo) {
+
+            // Include soft-deleted records in the lookup.
+            $participant = MakeMeParticipant::withTrashed()
+                ->where('email', $data['email'])
+                ->lockForUpdate()
+                ->first();
+
+            if ($participant && !$participant->trashed()) {
+                throw ValidationException::withMessages([
+                    'email' => 'This email is already registered to an active participant.',
+                ]);
             }
 
-            DB::transaction(function () use ($data, $photoPath) {
-                $participant = MakeMeParticipant::create($data + [
-                    'photo_path' => $photoPath,
-                    'approved_at' => $data['status'] === 'active' ? now() : null,
+            $photoPath = null;
+
+            if ($photo) {
+                $photoPath = $photo->store(
+                    'makeme/contestants',
+                    'public'
+                );
+            }
+
+            try {
+
+                if ($participant && $participant->trashed()) {
+
+                    // Restore the existing contestant account.
+                    $participant->restore();
+
+                    $participant->fill($data);
+
+                    if ($photoPath) {
+                        $participant->photo_path = $photoPath;
+                    }
+
+                    if (
+                        $participant->status === 'active' &&
+                        !$participant->approved_at
+                    ) {
+                        $participant->approved_at = now();
+                    }
+
+                    $participant->save();
+
+                    MakeMeActivityLogger::record(
+                        'participants',
+                        'restored',
+                        'Deleted participant restored during registration',
+                        $participant,
+                        [
+                            'participant_id' => $participant->id,
+                            'participant_number' => $participant->participant_number,
+                        ]
+                    );
+
+                    return 'restored';
+                }
+
+                // Create a completely new participant.
+                $attributes = $data + [
                     'password' => null,
-                ]);
-                $participant->participant_number = 'MKL-' . str_pad((string) $participant->id, 5, '0', STR_PAD_LEFT);
+                    'approved_at' => $data['status'] === 'active'
+                        ? now()
+                        : null,
+                ];
+
+                if ($photoPath) {
+                    $attributes['photo_path'] = $photoPath;
+                }
+
+                $participant = MakeMeParticipant::create($attributes);
+
+                $participant->participant_number = 'MKL-' .
+                    str_pad(
+                        (string) $participant->id,
+                        5,
+                        '0',
+                        STR_PAD_LEFT
+                    );
+
                 $participant->save();
 
-                MakeMeActivityLogger::record('participants', 'created', 'Participant created', $participant, [
-                    'participant_id' => $participant->getKey(),
-                    'photo_uploaded' => (bool) $photoPath,
-                ]);
-            }, 3);
-        } catch (Throwable $e) {
-            if ($photoPath) Storage::disk('public')->delete($photoPath);
-            throw $e;
-        }
+                MakeMeActivityLogger::record(
+                    'participants',
+                    'created',
+                    'Participant created',
+                    $participant,
+                    [
+                        'participant_id' => $participant->id,
+                        'participant_number' => $participant->participant_number,
+                    ]
+                );
 
-        return redirect()->route('admin.makeme.participants.index')
-            ->with('success', 'Participant created. Send an activation link when ready.');
+                return 'created';
+
+            } catch (\Throwable $e) {
+
+                if ($photoPath) {
+                    \Illuminate\Support\Facades\Storage::disk('public')
+                        ->delete($photoPath);
+                }
+
+                throw $e;
+            }
+
+        }, 3);
+
+        return redirect()
+            ->route('admin.makeme.participants.index')
+            ->with(
+                'success',
+                $result === 'restored'
+                    ? 'Previously deleted participant restored successfully.'
+                    : 'Participant created successfully.'
+            );
     }
 
     public function update(Request $request, MakeMeParticipant $participant)
@@ -198,22 +339,65 @@ class MakeMeParticipantController extends Controller
         return back()->with('success', 'Participant updated successfully.');
     }
 
+    
     public function invite(MakeMeParticipant $participant)
     {
+        // Only active participants can receive invitations.
         if ($participant->status !== 'active') {
-            return back()->withErrors(['invite' => 'Activate the participant before sending an invitation.']);
+            return back()->with(
+                'error',
+                'Activate this participant before sending an invitation.'
+            );
         }
 
-        $status = Password::broker('makeme_participants')->sendResetLink(['email' => $participant->email]);
-        if ($status === Password::RESET_LINK_SENT) {
-            MakeMeActivityLogger::record('participants', 'invitation_sent', 'Participant invitation sent', $participant, [
-                'participant_id' => $participant->getKey(),
-                'delivery_method' => 'email',
-            ]);
-            return back()->with('success', 'Activation email sent.');
+        // Do not resend activation invitations to verified accounts.
+        if ($participant->email_verified_at) {
+            return back()->with(
+                'error',
+                'This participant has already activated their account.'
+            );
         }
-        return back()->with('error', 'Email could not be sent. Check your mail configuration and logs.');
+
+        // Send a fresh activation link using the participant broker.
+        $status = Password::broker('makeme_participants')
+            ->sendResetLink([
+                'email' => $participant->email,
+            ]);
+
+        if ($status === Password::RESET_LINK_SENT) {
+
+            // Record successful invitation request.
+            MakeMeActivityLogger::record(
+                'participants',
+                'invitation_sent',
+                'Participant activation invitation sent',
+                $participant,
+                [
+                    'participant_id' => $participant->id,
+                    'participant_number' => $participant->participant_number,
+                    'delivery_method' => 'email',
+                ]
+            );
+
+            return back()->with(
+                'success',
+                'Activation invitation sent successfully to '
+                . $participant->email
+            );
+        }
+
+        if ($status === Password::RESET_THROTTLED) {
+            return back()->with(
+                'error',
+                'An invitation was sent to this contestant recently. Please wait at least 60 seconds before resending.'
+            );
+        }
+        return back()->with(
+            'error',
+            'Unable to send the invitation. Please check your email configuration.'
+        );
     }
+
 
     public function export(Request $request): StreamedResponse
     {
@@ -258,4 +442,152 @@ class MakeMeParticipantController extends Controller
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | DELETE PARTICIPANT (SOFT DELETE)
+    |--------------------------------------------------------------------------
+    */
+
+    public function destroy(MakeMeParticipant $participant)
+    {
+        DB::transaction(function () use ($participant) {
+
+            MakeMeActivityLogger::record(
+                'participants',
+                'deleted',
+                'Participant removed from active records',
+                $participant,
+                [
+                    'participant_id' => $participant->id,
+                    'participant_number' => $participant->participant_number,
+                    'participant_name' => $participant->full_name,
+                ]
+            );
+
+            $participant->delete();
+        });
+
+        return redirect()
+            ->route('admin.makeme.participants.index')
+            ->with(
+                'success',
+                'Participant removed successfully.'
+            );
+    }
+
+    public function generateActivationLink(MakeMeParticipant $participant)
+    {
+        $admin = auth('web')->user();
+
+        abort_unless(
+            $admin && (
+                $admin->hasRole('Super Admin', 'web') ||
+                $admin->can('makeme.participants.invite')
+            ),
+            403
+        );
+
+        if ($participant->status !== 'active') {
+            return back()->with(
+                'error',
+                'Only active participants can receive activation links.'
+            );
+        }
+
+        if (!empty($participant->password)) {
+            return back()->with(
+                'error',
+                'This participant already has a password. Use the password reset process instead.'
+            );
+        }
+
+        // Generate a token using the EXISTING participant password broker.
+        $token = Password::broker('makeme_participants')
+            ->createToken($participant);
+
+        // IMPORTANT: Use the exact password setup route already
+        // referenced by MakeMeInvitationNotification.
+        $url = route('makeme.invitation.show', [
+            'token' => $token,
+            'email' => $participant->email,
+        ]);
+
+        MakeMeActivityLogger::record(
+            'participants',
+            'activation_link_generated',
+            'Manual activation link generated by administrator',
+            $participant,
+            [
+                'participant_id' => $participant->id,
+                'participant_number' => $participant->participant_number,
+                'delivery_method' => 'manual',
+            ]
+        );
+
+        // Never record the token or activation URL in activity logs.
+        return back()->with('activation_link', [
+            'name' => $participant->full_name,
+            'url' => $url,
+        ]);
+    }
+
+    
+    public function generatePasswordResetLink(MakeMeParticipant $participant)
+    {
+        $admin = auth('web')->user();
+
+        abort_unless(
+            $admin && (
+                $admin->hasRole('Super Admin', 'web') ||
+                $admin->can('makeme.participants.invite')
+            ),
+            403
+        );
+
+        if ($participant->status !== 'active') {
+            return back()->with(
+                'error',
+                'Only active participants can reset their passwords.'
+            );
+        }
+
+        if (empty($participant->password)) {
+            return back()->with(
+                'error',
+                'This contestant has not created a password yet. Use Generate Activation Link instead.'
+            );
+        }
+
+        $token = Password::broker('makeme_participants')
+            ->createToken($participant);
+
+        // Use the same token-based password page as existing invitations.
+        $url = route('makeme.invitation.show', [
+            'token' => $token,
+            'email' => $participant->email,
+        ]);
+
+        MakeMeActivityLogger::record(
+            'participants',
+            'password_reset_link_generated',
+            'Administrator generated a participant password reset link',
+            $participant,
+            [
+                'participant_id' => $participant->id,
+                'participant_number' => $participant->participant_number,
+                'delivery_method' => 'manual',
+            ]
+        );
+
+        return back()->with('activation_link', [
+            'name' => $participant->full_name,
+            'url' => $url,
+            'type' => 'password_reset',
+        ]);
+    }
+
+
+
 }

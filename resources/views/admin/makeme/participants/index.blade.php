@@ -9,6 +9,7 @@
     $canImport = $isSuperAdmin || $admin->can('makeme.participants.import');
     $canExport = $isSuperAdmin || $admin->can('makeme.participants.export');
     $canInvite = $isSuperAdmin || $admin->can('makeme.participants.invite');
+    $canDelete = $isSuperAdmin || $admin->can('makeme.participants.delete');
     $fields = [
         'first_name' => ['First name', 'text', true, 100],
         'surname' => ['Surname', 'text', true, 100],
@@ -77,20 +78,144 @@
             <td>{{ $skills[$participant->skill_category] ?? $participant->skill_category }}</td>
             <td><span class="status {{ $participant->status === 'active' ? 'status-active' : 'status-inactive' }}">{{ ucfirst($participant->status) }}</span></td>
             <td>{{ $participant->email_verified_at ? 'Activated' : 'Not activated' }}</td>
-            <td class="right"><div class="makeme-action-row">
-                <button type="button" class="table-action js-profile" data-profile='@json($profile)'>View</button>
-                @if($canEdit)
-                    <button type="button" class="table-action js-edit"
-                        data-url="{{ route('admin.makeme.participants.update', $participant) }}"
-                        data-first="{{ $participant->first_name }}" data-last="{{ $participant->surname }}"
-                        data-other="{{ $participant->other_name }}" data-email="{{ $participant->email }}"
-                        data-phone="{{ $participant->mobile_no }}" data-skill="{{ $participant->skill_category }}"
-                        data-status="{{ $participant->status }}" data-profile='@json($profile)'>Edit</button>
-                @endif
-                @if($canInvite && !$participant->email_verified_at && $participant->status === 'active')
-                    <form method="POST" action="{{ route('admin.makeme.participants.invite', $participant) }}">@csrf<button type="submit" class="table-action">Send invitation</button></form>
-                @endif
-            </div></td>
+            
+            <td class="right">
+                <div class="mp-actions">
+
+                    {{-- QUICK VIEW --}}
+                    <button
+                        type="button"
+                        class="table-action js-profile"
+                        data-profile='@json($profile)'
+                    >
+                        View
+                    </button>
+
+                    {{-- THREE-DOT MENU --}}
+                    <div class="mp-action-menu">
+
+                        <button
+                            type="button"
+                            class="mp-action-trigger"
+                            aria-label="More actions for {{ $participant->full_name }}"
+                            aria-haspopup="true"
+                            aria-expanded="false"
+                            title="More actions"
+                        >
+                            &#8942;
+                        </button>
+
+                        <div class="mp-action-dropdown" hidden>
+
+                            {{-- EDIT --}}
+                            @if($canEdit)
+                                <button
+                                    type="button"
+                                    class="mp-action-item js-edit"
+                                    data-url="{{ route('admin.makeme.participants.update', $participant) }}"
+                                    data-first="{{ $participant->first_name }}"
+                                    data-last="{{ $participant->surname }}"
+                                    data-other="{{ $participant->other_name }}"
+                                    data-email="{{ $participant->email }}"
+                                    data-phone="{{ $participant->mobile_no }}"
+                                    data-skill="{{ $participant->skill_category }}"
+                                    data-status="{{ $participant->status }}"
+                                    data-profile='@json($profile)'
+                                >
+                                    <span>✎</span>
+                                    Edit Participant
+                                </button>
+                            @endif
+
+                            {{-- SEND / RESEND INVITE --}}
+                            @if(
+                                $canInvite &&
+                                $participant->status === 'active' &&
+                                !$participant->email_verified_at
+                            )
+                                <form
+                                    method="POST"
+                                    action="{{ route('admin.makeme.participants.invite', $participant) }}"
+                                    onsubmit="return confirm('Send an invitation to this participant?');"
+                                >
+                                    @csrf
+
+                                    <button type="submit" class="mp-action-item">
+                                        <span>✉</span>
+                                        Send / Resend Invite
+                                    </button>
+                                </form>
+                            @endif
+
+                            {{-- GENERATE ACTIVATION LINK --}}
+                            @if(
+                                $canInvite &&
+                                $participant->status === 'active' &&
+                                empty($participant->password)
+                            )
+                                <form
+                                    method="POST"
+                                    action="{{ route('admin.makeme.participants.activation-link', $participant) }}"
+                                >
+                                    @csrf
+
+                                    <button type="submit" class="mp-action-item">
+                                        <span>🔗</span>
+                                        Generate Activation Link
+                                    </button>
+                                </form>
+                            @endif
+
+                            
+                            {{-- RESET PARTICIPANT PASSWORD --}}
+                            @if(
+                                $canInvite &&
+                                $participant->status === 'active' &&
+                                !empty($participant->password)
+                            )
+                                <form
+                                    method="POST"
+                                    action="{{ route('admin.makeme.participants.reset-password-link', $participant) }}"
+                                    onsubmit="return confirm('Generate a new password reset link for this contestant?');"
+                                >
+                                    @csrf
+
+                                    <button
+                                        type="submit"
+                                        class="mp-action-item"
+                                        title="Generate password reset link"
+                                    >
+                                        <span>
+                                            <i class="fas fa-key"></i>
+                                        </span>
+
+                                        Reset Password
+                                    </button>
+                                </form>
+                            @endif
+
+
+                            {{-- DELETE --}}
+                            @if($canDelete)
+                                <div class="mp-action-divider"></div>
+
+                                <button
+                                    type="button"
+                                    class="mp-action-item mp-action-danger js-delete-participant"
+                                    data-url="{{ route('admin.makeme.participants.destroy', $participant) }}"
+                                    data-name="{{ $participant->full_name }}"
+                                >
+                                    <span>🗑</span>
+                                    Delete Participant
+                                </button>
+                            @endif
+
+                        </div>
+
+                    </div>
+                </div>
+            </td>
+
         </tr>
     @empty
         <tr><td colspan="6"><div class="empty-state"><strong>No participants found</strong><p>Add a participant or adjust your filters.</p></div></td></tr>
@@ -144,14 +269,214 @@
 <div class="modal-backdrop" id="importModal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="importTitle"><div class="modal-head"><div><span class="modal-kicker">BULK ENROLMENT</span><h2 id="importTitle">Import participants</h2><p>Preview up to 500 rows before importing.</p></div><button type="button" class="modal-close" data-close-modal aria-label="Close">×</button></div>
 <a class="btn btn-outline-light" href="{{ route('admin.makeme.participants.import.template') }}">↓ Download template</a>
 <form method="POST" action="{{ route('admin.makeme.participants.import.preview') }}" enctype="multipart/form-data">@csrf
-<label class="field-label" for="participantExcel">Excel or CSV file *</label><input type="file" id="participantExcel" name="file" accept=".xlsx,.csv" required><p class="help-text">Columns: first_name, surname, email, mobile_no, skill_category. Maximum 2 MB.</p>
+<label class="field-label" for="participantExcel">Excel or CSV file *</label><input type="file" id="participantExcel" name="file" accept=".xlsx,.csv" required><p class="help-text">Required columns: first_name, surname, email,
+    mobile_no, skill_category. Other profile fields
+    are optional. Maximum 500 rows / 2 MB.
+    Download the updated template above.</p>
 <div class="modal-actions"><button type="button" class="btn btn-outline-light" data-close-modal>Cancel</button><button type="submit" class="btn btn-gold">Preview import</button></div></form></div></div>
 @endif
 
-@if($errors->any() && in_array(old('_profile_modal'), ['add','edit'], true))
-    @php $restoreProfile = ['modal' => old('_profile_modal'), 'id' => old('_participant_id'), 'values' => old(array_merge(array_keys($fields), ['skill_category','status']))]; @endphp
-    <script type="application/json" id="mpRestoreProfile">@json($restoreProfile)</script>
+
+@if($errors->any() && in_array(old('_profile_modal'), ['add', 'edit'], true))
+    @php
+        $profileFields = array_merge(
+            array_keys($fields),
+            ['skill_category', 'status']
+        );
+
+        $oldValues = [];
+
+        foreach ($profileFields as $field) {
+            $oldValues[$field] = old($field);
+        }
+
+        $restoreProfile = [
+            'modal' => old('_profile_modal'),
+            'id' => old('_participant_id'),
+            'values' => $oldValues,
+        ];
+    @endphp
+
+    <script type="application/json" id="mpRestoreProfile">
+        @json($restoreProfile)
+    </script>
 @endif
+
+
+
+{{-- DELETE PARTICIPANT MODAL --}}
+@if($canDelete)
+
+<div class="modal-backdrop" id="deleteParticipantModal" hidden>
+
+    <div
+        class="modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="deleteParticipantTitle"
+        style="max-width:460px;"
+    >
+
+        <div class="modal-head">
+            <div>
+                <span class="modal-kicker">
+                    CONFIRM ACTION
+                </span>
+
+                <h2 id="deleteParticipantTitle">
+                    Delete Participant
+                </h2>
+            </div>
+
+            <button
+                type="button"
+                class="modal-close"
+                id="closeDeleteParticipant"
+                aria-label="Close"
+            >
+                &times;
+            </button>
+        </div>
+
+        <div style="padding:20px 0;">
+
+            <p>
+                Are you sure you want to remove
+                <strong id="deleteParticipantName"></strong>?
+            </p>
+
+            <p style="font-size:13px;opacity:.75;">
+                This participant will lose access to the
+                contestant portal. Their previous orders,
+                wallet transactions and activity history
+                will be retained.
+            </p>
+
+        </div>
+
+        <form method="POST" id="deleteParticipantForm">
+            @csrf
+            @method('DELETE')
+
+            <div class="modal-actions">
+
+                <button
+                    type="button"
+                    class="btn btn-outline-light"
+                    id="cancelDeleteParticipant"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="submit"
+                    class="btn"
+                    style="background:#b42318;color:white;"
+                >
+                    Yes, Delete Participant
+                </button>
+
+            </div>
+        </form>
+
+    </div>
+</div>
+
+@endif
+
+
+
+{{-- GENERATED ACTIVATION LINK MODAL --}}
+@if(session('activation_link'))
+
+    <div
+        class="modal-backdrop"
+        id="activationLinkModal"
+        style="display:flex;"
+    >
+        <div
+            class="modal-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="activationLinkTitle"
+            style="max-width:520px;width:100%;"
+        >
+
+            <div class="modal-head">
+                <div>
+                    <span class="modal-kicker">
+                        PARTICIPANT ACTIVATION
+                    </span>
+
+                    
+                <h2 id="activationLinkTitle">
+                    {{ session('activation_link.type') === 'password_reset'
+                        ? 'Password Reset Link Generated'
+                        : 'Activation Link Generated' }}
+                </h2>
+
+                </div>
+
+                <button
+                    type="button"
+                    class="modal-close"
+                    onclick="document.getElementById('activationLinkModal').style.display='none'"
+                >
+                    &times;
+                </button>
+            </div>
+
+            <div style="padding:20px 0;">
+
+                <p>
+                    Activation link for
+                    <strong>
+                        {{ session('activation_link.name') }}
+                    </strong>
+                </p>
+
+                <p style="font-size:12px;color:#777;">
+                    Copy this link and send it privately to the contestant.
+                    The link expires according to your participant
+                    password broker settings.
+                </p>
+
+                <textarea
+                    id="generatedActivationUrl"
+                    readonly
+                    rows="4"
+                    style="
+                        width:100%;
+                        padding:12px;
+                        border:1px solid #ddd;
+                        border-radius:8px;
+                        resize:none;
+                        overflow-wrap:anywhere;
+                    "
+                >{{ session('activation_link.url') }}</textarea>
+
+                <button
+                    type="button"
+                    class="btn btn-gold"
+                    id="copyActivationLink"
+                    style="margin-top:14px;"
+                >
+                    Copy Activation Link
+                </button>
+
+                <p
+                    id="activationCopyStatus"
+                    role="status"
+                    style="font-size:12px;margin-top:10px;"
+                ></p>
+
+            </div>
+
+        </div>
+    </div>
+
+@endif
+
 @endsection
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/makeme-independent-participants.css') }}">
@@ -160,4 +485,190 @@
 @push('scripts')
     <script src="{{ asset('js/makeme-participants-independent.js') }}" defer></script>
     <script src="{{ asset('js/makeme-participant-profile-admin.js') }}" defer></script>
+    <script>
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    const modal = document.getElementById('deleteParticipantModal');
+    const form = document.getElementById('deleteParticipantForm');
+    const name = document.getElementById('deleteParticipantName');
+
+    if (!modal || !form || !name) return;
+
+    document.querySelectorAll('.js-delete-participant')
+        .forEach(button => {
+
+            button.addEventListener('click', function () {
+
+                form.action = this.dataset.url;
+                name.textContent = this.dataset.name;
+
+                modal.hidden = false;
+            });
+
+        });
+
+    function closeModal() {
+        modal.hidden = true;
+        form.removeAttribute('action');
+    }
+
+    document.getElementById('closeDeleteParticipant')
+        ?.addEventListener('click', closeModal);
+
+    document.getElementById('cancelDeleteParticipant')
+        ?.addEventListener('click', closeModal);
+
+    modal.addEventListener('click', function (event) {
+        if (event.target === modal) closeModal();
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !modal.hidden) {
+            closeModal();
+        }
+    });
+
+});
+
+    </script>
+    
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const button = document.getElementById('copyActivationLink');
+    const field = document.getElementById('generatedActivationUrl');
+    const status = document.getElementById('activationCopyStatus');
+
+    if (!button || !field) return;
+
+    button.addEventListener('click', async function () {
+        try {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(field.value);
+                status.textContent = 'Activation link copied!';
+            } else {
+                field.focus();
+                field.select();
+                status.textContent =
+                    'Select and copy the highlighted link.';
+            }
+        } catch (error) {
+            field.focus();
+            field.select();
+            status.textContent =
+                'Please copy the highlighted link manually.';
+        }
+    });
+});
+</script>
+<script>
+
+document.addEventListener('DOMContentLoaded', function () {
+
+    let activeMenu = null;
+    let activeTrigger = null;
+
+    function closeActionMenu() {
+        if (activeMenu) {
+            activeMenu.hidden = true;
+        }
+
+        if (activeTrigger) {
+            activeTrigger.setAttribute('aria-expanded', 'false');
+        }
+
+        activeMenu = null;
+        activeTrigger = null;
+    }
+
+    function positionMenu(trigger, menu) {
+        const rect = trigger.getBoundingClientRect();
+
+        menu.style.visibility = 'hidden';
+        menu.hidden = false;
+
+        const menuWidth = menu.offsetWidth;
+        const menuHeight = menu.offsetHeight;
+        const gap = 6;
+        const margin = 10;
+
+        let left = rect.right - menuWidth;
+        left = Math.max(
+            margin,
+            Math.min(left, window.innerWidth - menuWidth - margin)
+        );
+
+        let top = rect.bottom + gap;
+
+        // Open upward when the bottom space is insufficient.
+        if (
+            top + menuHeight > window.innerHeight - margin &&
+            rect.top >= menuHeight + gap
+        ) {
+            top = rect.top - menuHeight - gap;
+        }
+
+        top = Math.max(
+            margin,
+            Math.min(top, window.innerHeight - menuHeight - margin)
+        );
+
+        menu.style.left = left + 'px';
+        menu.style.top = top + 'px';
+        menu.style.visibility = 'visible';
+    }
+
+    document.querySelectorAll('.mp-action-trigger')
+        .forEach(function (trigger) {
+
+            trigger.addEventListener('click', function (event) {
+                event.stopPropagation();
+
+                const menu = trigger.parentElement
+                    .querySelector('.mp-action-dropdown');
+
+                if (!menu) return;
+
+                if (activeMenu === menu) {
+                    closeActionMenu();
+                    return;
+                }
+
+                closeActionMenu();
+
+                activeMenu = menu;
+                activeTrigger = trigger;
+
+                trigger.setAttribute('aria-expanded', 'true');
+                positionMenu(trigger, menu);
+            });
+        });
+
+    document.addEventListener('click', function (event) {
+        if (
+            activeMenu &&
+            !activeMenu.contains(event.target) &&
+            !activeTrigger.contains(event.target)
+        ) {
+            closeActionMenu();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            closeActionMenu();
+        }
+    });
+
+    window.addEventListener('resize', closeActionMenu);
+
+    // Close on table scrolling to avoid misaligned menus.
+    document.querySelectorAll('.table-scroll')
+        .forEach(function (container) {
+            container.addEventListener('scroll', closeActionMenu);
+        });
+
+});
+
+</script>
 @endpush

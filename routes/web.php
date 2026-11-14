@@ -200,6 +200,26 @@ Route::prefix('live/participant')
             ->name('kolo.index');
 
 
+        /*
+        |--------------------------------------------------------------------------
+        | PARTICIPANT MY PROFILE
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/profile', [
+            \App\Http\Controllers\Participant\MakeMeParticipantProfileController::class,
+            'index'
+        ])->name('profile.index');
+
+        Route::patch('/profile', [
+            \App\Http\Controllers\Participant\MakeMeParticipantProfileController::class,
+            'update'
+        ])
+            ->middleware('throttle:10,1')
+            ->name('profile.update');
+
+
+
             /*
             |--------------------------------------------------------------------------
             | Participant Logout
@@ -382,6 +402,33 @@ Route::prefix('admin/live')
             ->middleware('makeme.permission:makeme.participants.create')
             ->name('participants.store');
 
+        
+        Route::delete(
+            '/participants/{participant}',
+            [
+                \App\Http\Controllers\Admin\MakeMeParticipantController::class,
+                'destroy'
+            ]
+        )
+        ->middleware('makeme.permission:makeme.participants.delete')
+        ->name('participants.destroy');
+
+
+        Route::post(
+            '/participants/{participant}/generate-activation-link',
+            [
+                MakeMeParticipantController::class,
+                'generateActivationLink'
+            ]
+        )
+            ->middleware([
+                'makeme.permission:makeme.participants.invite',
+                'throttle:3,1',
+            ])
+            ->name('participants.activation-link');
+
+
+
 
         // Export participant records to Excel
         Route::get('/participants/export', [
@@ -423,6 +470,21 @@ Route::prefix('admin/live')
         ])
             ->middleware('makeme.permission:makeme.participants.import')
             ->name('participants.import.confirm');
+
+        
+        Route::post(
+            '/participants/{participant}/reset-password-link',
+            [
+                MakeMeParticipantController::class,
+                'generatePasswordResetLink'
+            ]
+        )
+            ->middleware([
+                'makeme.permission:makeme.participants.invite',
+                'throttle:3,1',
+            ])
+            ->name('participants.reset-password-link');
+
 
 
         /*

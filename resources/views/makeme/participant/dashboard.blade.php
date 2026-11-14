@@ -279,12 +279,12 @@
                     @forelse($products as $product)
                         <article class="cp-product"><div class="cp-product-photo">
                             @if($product->image_path)
-                                <img src="{{ asset('storage/' . ltrim($product->image_path, '/')) }}" alt="{{ $product->name }}" loading="lazy">
+                                <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url(ltrim($product->image_path, '/')) }}" alt="{{ $product->name }}" loading="lazy">
                             @else
                                 <div class="cp-product-fallback"><span>✦</span><small>MAKEME LIVE</small></div>
                             @endif
                             <span class="cp-stock-pill">In stock</span>
-                        </div><div class="cp-product-info"><span class="cp-product-category">{{ ucwords(str_replace(['_', '-'], ' ', (string) ($product->category ?? 'General'))) }}</span><h4>{{ $product->name }}</h4><div class="cp-product-price"><strong>{{ number_format((int) $product->credit_price) }}</strong><span>credits</span></div></div></article>
+                        </div><div class="cp-product-info"><span class="cp-product-category">{{ ucwords(str_replace(['_', '-'], ' ', (string) ($product->category ?? 'General'))) }}</span><h4>{{ $product->name }}</h4>@if($product->unit_label)<p class="cp-product-unit" style="margin:4px 0 8px;font-size:12px;font-weight:600;opacity:.85;">{{ $product->unit_label }}</p>@endif<div class="cp-product-price"><strong>{{ number_format((int) $product->credit_price) }}</strong><span>credits</span></div></div></article>
                     @empty
                         <div class="cp-products-empty"><span>✦</span><strong>The Marketplace is getting ready</strong><p>Available products will appear here once they are added.</p></div>
                     @endforelse

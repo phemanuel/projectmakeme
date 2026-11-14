@@ -16,6 +16,7 @@ class MakeMeProductController extends Controller
 {
     private const CATEGORIES = [
         'general',
+        'groceries',
         'fashion_designing',
         'shoe_making',
         'hair_styling',
@@ -190,6 +191,7 @@ class MakeMeProductController extends Controller
                     [
                         'product_id' => $product->id,
                         'name' => $product->name,
+                        'unit_label' => $product->unit_label,
                         'sku' => $product->sku,
                         'category' => $product->category,
                         'credit_price' => $product->credit_price,
@@ -225,6 +227,7 @@ class MakeMeProductController extends Controller
 
         $before = $product->only([
             'name',
+            'unit_label',
             'sku',
             'description',
             'category',
@@ -414,6 +417,9 @@ class MakeMeProductController extends Controller
         $rules = [
             'name' => [
                 'required', 'string', 'max:180',
+            ],
+            'unit_label' => [
+                'nullable', 'string', 'max:100',
             ],
             'sku' => [
                 'required', 'string', 'max:80',

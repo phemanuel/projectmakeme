@@ -11,6 +11,7 @@ class MakeMeProduct extends Model
 
     protected $fillable = [
         'name',
+        'unit_label',
         'sku',
         'description',
         'category',
@@ -48,4 +49,28 @@ class MakeMeProduct extends Model
 
         return 'in_stock';
     }
+
+
+    public function scopeVisibleToParticipant(
+        \Illuminate\Database\Eloquent\Builder $query,
+        \App\Models\MakeMeParticipant $participant
+    ): \Illuminate\Database\Eloquent\Builder {
+
+        return $query->where(function ($q) use ($participant) {
+
+            $q->whereIn('category', [
+                'general',
+                'groceries',
+            ]);
+
+            if (!empty($participant->skill_category)) {
+                $q->orWhere(
+                    'category',
+                    $participant->skill_category
+                );
+            }
+
+        });
+    }
+
 }
