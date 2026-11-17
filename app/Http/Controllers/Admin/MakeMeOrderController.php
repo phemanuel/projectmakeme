@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Carbon\Carbon;
 
 class MakeMeOrderController extends Controller
 {
@@ -30,50 +31,509 @@ class MakeMeOrderController extends Controller
         );
     }
 
+   
+    
     public function index(Request $request)
     {
         $this->authorizeAction('makeme.orders.view');
+    
+        /*
+        |--------------------------------------------------------------------------
+        | Validate Filters
+        |--------------------------------------------------------------------------
+        */
+    
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', Rule::in(['all', 'placed', 'fulfilled', 'cancelled'])],
+    
+            'status' => [
+                'nullable',
+                Rule::in(['all', 'placed', 'fulfilled', 'cancelled']),
+            ],
+    
+            'received_from' => [
+                'nullable',
+                'date_format:Y-m-d\TH:i',
+            ],
+    
+            'received_to' => [
+                'nullable',
+                'date_format:Y-m-d\TH:i',
+            ],
+    
+            'delivery_date' => [
+                'nullable',
+                'date_format:Y-m-d',
+            ],
+            
+            'output' => [
+                'nullable',
+                Rule::in(['csv', 'print']),
+            ],
         ]);
-
-        $ordersQuery = MakeMeOrder::query()->with(['participant', 'items', 'creator']);
+    
+        /*
+        |--------------------------------------------------------------------------
+        | Timezone Configuration
+        |--------------------------------------------------------------------------
+        |
+        | Admins enter dates and times in Nigerian time.
+        | Convert the selected times to the timezone used
+        | to store order created_at values.
+        |
+        | This assumes timestamps are stored in the Laravel
+        | application timezone (commonly UTC).
+        |
+        */
+    
+        $displayTimezone = 'Africa/Lagos';
+        $storageTimezone = config('app.timezone', 'UTC');
+    
+        /*
+        |--------------------------------------------------------------------------
+        | Retrieve Orders
+        |--------------------------------------------------------------------------
+        */
+    
+        $ordersQuery = MakeMeOrder::query()
+            ->with([
+                'participant',
+                'items',
+                'creator',
+            ]);
+    
+        /*
+        |--------------------------------------------------------------------------
+        | Search Orders
+        |--------------------------------------------------------------------------
+        |
+        | Supports:
+        | - Order reference
+        | - Kreativ ID
+        | - First name
+        | - Other name
+        | - Surname
+        | - Full name
+        | - Email address
+        |
+        */
+    
         if (!empty($filters['q'])) {
+    
             $term = trim($filters['q']);
-            $ordersQuery->where(function ($query) use ($term) {
-                $query->where('reference', 'like', "%{$term}%")
-                    ->orWhere('participant_id', $term);
+    
+            $nameParts = preg_split(
+                '/\s+/',
+                $term,
+                -1,
+                PREG_SPLIT_NO_EMPTY
+            );
+    
+            $ordersQuery->where(function ($query) use ($term, $nameParts) {
+    
+                $query->where(
+                    'reference',
+                    'like',
+                    "%{$term}%"
+                );
+    
+                if (ctype_digit($term)) {
+                    $query->orWhere(
+                        'participant_id',
+                        (int) $term
+                    );
+                }
+    
+                $query->orWhereHas(
+                    'participant',
+                    function ($participantQuery) use ($term, $nameParts) {
+    
+                        $participantQuery->where(
+                            function ($nameQuery) use ($term, $nameParts) {
+    
+                                $nameQuery
+                                    ->where('first_name', 'like', "%{$term}%")
+                                    ->orWhere('surname', 'like', "%{$term}%")
+                                    ->orWhere('other_name', 'like', "%{$term}%")
+                                    ->orWhere('email', 'like', "%{$term}%");
+    
+                                if (count($nameParts) > 1) {
+    
+                                    $nameQuery->orWhere(
+                                        function ($fullNameQuery) use ($nameParts) {
+    
+                                            foreach ($nameParts as $part) {
+    
+                                                $fullNameQuery->where(
+                                                    function ($partQuery) use ($part) {
+    
+                                                        $partQuery
+                                                            ->where('first_name', 'like', "%{$part}%")
+                                                            ->orWhere('surname', 'like', "%{$part}%")
+                                                            ->orWhere('other_name', 'like', "%{$part}%");
+    
+                                                    }
+                                                );
+                                            }
+                                        }
+                                    );
+                                }
+                            }
+                        );
+                    }
+                );
             });
         }
-        if (!empty($filters['status']) && $filters['status'] !== 'all') {
-            $ordersQuery->where('status', $filters['status']);
+    
+        /*
+        |--------------------------------------------------------------------------
+        | Filter by Order Status
+        |--------------------------------------------------------------------------
+        */
+    
+        if (
+            !empty($filters['status']) &&
+            $filters['status'] !== 'all'
+        ) {
+            $ordersQuery->where(
+                'status',
+                $filters['status']
+            );
         }
+    
+        /*
+        |--------------------------------------------------------------------------
+        | Filter by Received Date and Time
+        |--------------------------------------------------------------------------
+        */
+    
+        $receivedFrom = null;
+        $receivedTo = null;
+    
+        if (!empty($filters['received_from'])) {
+    
+            $receivedFrom = Carbon::createFromFormat(
+                '!Y-m-d\TH:i',
+                $filters['received_from'],
+                $displayTimezone
+            )->startOfMinute();
+    
+            $ordersQuery->where(
+                'created_at',
+                '>=',
+                $receivedFrom
+                    ->copy()
+                    ->timezone($storageTimezone)
+                    ->format('Y-m-d H:i:s')
+            );
+        }
+    
+        if (!empty($filters['received_to'])) {
+    
+            $receivedTo = Carbon::createFromFormat(
+                '!Y-m-d\TH:i',
+                $filters['received_to'],
+                $displayTimezone
+            )->endOfMinute();
+    
+            $ordersQuery->where(
+                'created_at',
+                '<=',
+                $receivedTo
+                    ->copy()
+                    ->timezone($storageTimezone)
+                    ->format('Y-m-d H:i:s')
+            );
+        }
+    
+        if (
+            $receivedFrom &&
+            $receivedTo &&
+            $receivedFrom->greaterThan($receivedTo)
+        ) {
+            throw ValidationException::withMessages([
+                'received_to' =>
+                    'The end date and time must be after the start date and time.',
+            ]);
+        }
+    
+        /*
+        |--------------------------------------------------------------------------
+        | Filter by Scheduled Delivery Date
+        |--------------------------------------------------------------------------
+        |
+        | Delivery rule:
+        |
+        | Orders received on or before 10:00 AM:
+        | Delivered that evening.
+        |
+        | Orders received after 10:00 AM:
+        | Delivered the following evening.
+        |
+        | Example:
+        |
+        | Delivery Date: November 18
+        |
+        | Includes orders received:
+        | After November 17, 10:00:00 AM
+        | Through November 18, 10:00:00 AM
+        |
+        */
+    
+        if (!empty($filters['delivery_date'])) {
+    
+            $deliveryDate = Carbon::createFromFormat(
+                '!Y-m-d',
+                $filters['delivery_date'],
+                $displayTimezone
+            );
+    
+            $deliveryEnd = $deliveryDate
+                ->copy()
+                ->setTime(10, 0, 0);
+    
+            $deliveryStart = $deliveryEnd
+                ->copy()
+                ->subDay();
+    
+            $ordersQuery
+                ->where(
+                    'created_at',
+                    '>',
+                    $deliveryStart
+                        ->timezone($storageTimezone)
+                        ->format('Y-m-d H:i:s')
+                )
+                ->where(
+                    'created_at',
+                    '<=',
+                    $deliveryEnd
+                        ->timezone($storageTimezone)
+                        ->format('Y-m-d H:i:s')
+                );
+        }
+    
+        /*
+        |--------------------------------------------------------------------------
+        | Sort Orders by Priority
+        |--------------------------------------------------------------------------
+        |
+        | Placed first, followed by Fulfilled and Cancelled.
+        | Newest first within each status.
+        |
+        */
+    
+       
+        /*
+        |--------------------------------------------------------------------------
+        | Sort Orders by Priority
+        |--------------------------------------------------------------------------
+        */
+        
+        $ordersQuery
+            ->orderByRaw("
+                CASE
+                    WHEN status = 'placed' THEN 0
+                    WHEN status = 'fulfilled' THEN 1
+                    WHEN status = 'cancelled' THEN 2
+                    ELSE 3
+                END
+            ")
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+        
+        /*
+        |--------------------------------------------------------------------------
+        | Export and Print Filtered Orders
+        |--------------------------------------------------------------------------
+        |
+        | Use the same filtered query as the normal Orders page.
+        | This happens BEFORE pagination.
+        |
+        */
+        
+        if (($filters['output'] ?? null) === 'csv') {
+        
+            $filename = 'ProjectMakeMe-Orders-'
+                . now('Africa/Lagos')->format('Y-m-d-His')
+                . '.csv';
+        
+            return response()->streamDownload(
+                function () use ($ordersQuery) {
+        
+                    $handle = fopen('php://output', 'w');
+        
+                    // UTF-8 BOM for Excel compatibility.
+                    fwrite($handle, "\xEF\xBB\xBF");
+        
+                    fputcsv($handle, [
+                        'Order Reference',
+                        'Kreativ ID',
+                        'Kreativ Name',
+                        'Email',
+                        'Items',
+                        'Total Units',
+                        'Total Credits',
+                        'Status',
+                        'Received At (WAT)',
+                        'Scheduled Delivery Date',
+                    ]);
+        
+                    // Prevent spreadsheet formula injection.
+                    $safeCell = static function ($value): string {
+                        $text = (string) ($value ?? '');
+        
+                        if (preg_match('/^[\s]*[=+\-@]/u', $text)) {
+                            return "'" . $text;
+                        }
+        
+                        return $text;
+                    };
+        
+                    foreach ($ordersQuery->lazy(200) as $order) {
+        
+                        $participant = $order->participant;
+        
+                        $name = $participant
+                            ? trim(implode(' ', array_filter([
+                                $participant->first_name,
+                                $participant->other_name,
+                                $participant->surname,
+                            ])))
+                            : 'Unavailable Kreativ';
+        
+                        $itemSummary = $order->items
+                            ->map(fn ($item) =>
+                                $item->product_name
+                                . ' x ' . (int) $item->quantity
+                            )
+                            ->implode('; ');
+        
+                        $receivedAt = $order->created_at
+                            ? $order->created_at
+                                ->copy()
+                                ->timezone('Africa/Lagos')
+                            : null;
+        
+                        $deliveryDate = $order->created_at
+                            ? \App\Support\MakeMeDeliverySchedule::deliveryDate(
+                                $order->created_at
+                            )
+                            : '';
+        
+                        fputcsv($handle, [
+                            $safeCell($order->reference),
+                            $order->participant_id,
+                            $safeCell($name),
+                            $safeCell($participant?->email),
+                            $safeCell($itemSummary),
+                            (int) $order->items->sum('quantity'),
+                            (int) $order->total_credits,
+                            ucfirst($order->status),
+                            $receivedAt?->format('Y-m-d h:i A'),
+                            $deliveryDate,
+                        ]);
+                    }
+        
+                    fclose($handle);
+                },
+                $filename,
+                ['Content-Type' => 'text/csv; charset=UTF-8']
+            );
+        }
+        
+        /*
+        |--------------------------------------------------------------------------
+        | Print Filtered Orders
+        |--------------------------------------------------------------------------
+        */
+        
+        if (($filters['output'] ?? null) === 'print') {
+        
+            return view('admin.makeme.orders.print', [
+                'orders' => (clone $ordersQuery)->get(),
+                'filters' => $filters,
+            ]);
+        }
+        
+        /*
+        |--------------------------------------------------------------------------
+        | Normal Paginated Orders
+        |--------------------------------------------------------------------------
+        */
+        
+        $orders = $ordersQuery
+            ->paginate(15)
+            ->withQueryString();
 
-        $orders = $ordersQuery->latest('id')->paginate(15)->withQueryString();
-
-        // Only active participants can have new orders placed on their behalf.
+    
+        /*
+        |--------------------------------------------------------------------------
+        | Active Participants
+        |--------------------------------------------------------------------------
+        */
+    
         $participants = MakeMeParticipant::query()
             ->where('status', 'active')
             ->with('wallet')
             ->orderBy('id')
             ->get();
-
+    
+        /*
+        |--------------------------------------------------------------------------
+        | Available Products
+        |--------------------------------------------------------------------------
+        */
+    
         $products = MakeMeProduct::query()
             ->where('is_active', true)
             ->where('stock_quantity', '>', 0)
             ->orderBy('name')
-            ->get(['id', 'name', 'sku', 'credit_price', 'stock_quantity', 'max_per_participant']);
-
+            ->get([
+                'id',
+                'name',
+                'sku',
+                'credit_price',
+                'stock_quantity',
+                'max_per_participant',
+            ]);
+    
+        /*
+        |--------------------------------------------------------------------------
+        | Order Statistics
+        |--------------------------------------------------------------------------
+        */
+    
         $stats = [
             'all' => MakeMeOrder::count(),
-            'placed' => MakeMeOrder::where('status', 'placed')->count(),
-            'fulfilled' => MakeMeOrder::where('status', 'fulfilled')->count(),
-            'cancelled' => MakeMeOrder::where('status', 'cancelled')->count(),
+    
+            'placed' => MakeMeOrder::where(
+                'status',
+                'placed'
+            )->count(),
+    
+            'fulfilled' => MakeMeOrder::where(
+                'status',
+                'fulfilled'
+            )->count(),
+    
+            'cancelled' => MakeMeOrder::where(
+                'status',
+                'cancelled'
+            )->count(),
         ];
-
-        return view('admin.makeme.orders.index', compact('orders', 'participants', 'products', 'stats'));
+    
+        return view(
+            'admin.makeme.orders.index',
+            compact(
+                'orders',
+                'participants',
+                'products',
+                'stats'
+            )
+        );
     }
+
 
     public function store(Request $request)
     {

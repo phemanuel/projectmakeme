@@ -218,6 +218,12 @@ Route::prefix('live/participant')
             ->middleware('throttle:10,1')
             ->name('profile.update');
 
+        Route::post('/kolomoni/transfer',[
+            \App\Http\Controllers\Participant\MakeMeCreditTransferController::class,
+            'store'      ])
+        ->middleware('throttle:5,1')
+        ->name('kolo.transfer');
+
 
 
             /*

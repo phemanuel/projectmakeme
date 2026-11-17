@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use App\Services\MakeMeActivityLogger;
+use Illuminate\Support\Str;
 
 class MakeMeProductController extends Controller
 {
@@ -147,11 +148,35 @@ class MakeMeProductController extends Controller
         ]);
     }
 
+
+    private function generateSku(string $category): string
+    {
+        $prefixes = [
+            'general' => 'GEN',
+            'groceries' => 'GRO',
+            'fashion_designing' => 'FAS',
+            'shoe_making' => 'SHO',
+            'hair_styling' => 'HAI',
+            'photography' => 'PHO',
+            'makeup_artistry' => 'MUA',
+            'modelling' => 'MOD',
+        ];
+
+        $prefix = $prefixes[$category] ?? 'PRD';
+
+        return 'NYF-' . $prefix . '-' . strtoupper((string) Str::ulid());
+    }
+
+
+    
     public function store(Request $request)
     {
         $this->authorizeAction('makeme.products.create');
 
         $data = $this->validatedProduct($request, true);
+
+        // Generate a unique SKU automatically
+        $data['sku'] = $this->generateSku($data['category']);
 
         $initialStock = (int) $data['stock_quantity'];
 
@@ -170,6 +195,7 @@ class MakeMeProductController extends Controller
 
         try {
             DB::transaction(function () use ($data, $initialStock) {
+
                 $product = MakeMeProduct::create($data);
 
                 if ($initialStock > 0) {
@@ -199,7 +225,9 @@ class MakeMeProductController extends Controller
                     ]
                 );
             });
+
         } catch (\Throwable $exception) {
+
             if ($imagePath) {
                 Storage::disk('public')->delete($imagePath);
             }
@@ -420,14 +448,7 @@ class MakeMeProductController extends Controller
             ],
             'unit_label' => [
                 'nullable', 'string', 'max:100',
-            ],
-            'sku' => [
-                'required', 'string', 'max:80',
-                Rule::unique('makeme_products', 'sku')
-                    ->ignore(
-                        $creating ? null : $request->route('product')?->id
-                    ),
-            ],
+            ],            
             'description' => [
                 'nullable', 'string', 'max:4000',
             ],

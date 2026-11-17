@@ -26,6 +26,8 @@ class MakeMeParticipantKoloController extends Controller
             ->first();
 
         $balance = (int) ($wallet?->balance ?? 0);
+        // Make the authoritative wallet balance available to the transfer modal.
+        $walletBalance = $balance;
         $walletId = $wallet?->getKey() ?? -1;
 
         $base = MakeMeWalletTransaction::query()->where('wallet_id', $walletId);
@@ -47,9 +49,25 @@ class MakeMeParticipantKoloController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        
+        $transferRecipients = \App\Models\MakeMeParticipant::query()
+            ->where('status', 'active')
+            ->whereKeyNot(auth('makeme')->id())
+            ->whereHas('wallet')
+            ->orderBy('first_name')
+            ->orderBy('surname')
+            ->get([
+                'id',
+                'first_name',
+                'other_name',
+                'surname',
+                'participant_number',
+            ]);
+
+
         return view('makeme.participant.kolo.index', compact(
             'participant', 'balance', 'totalReceived', 'totalSpent',
-            'transactions', 'filter'
+            'transactions', 'filter','transferRecipients','walletBalance'
         ));
     }
 }

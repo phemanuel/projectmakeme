@@ -35,7 +35,7 @@
     ];
 @endphp
 <section class="page-intro">
-    <div><div class="intro-kicker"><span class="live-dot"></span> SHOW OPERATIONS / PARTICIPANTS</div><h1>Participant Management<span class="gold-period">.</span></h1><p>Manage independent Project MakeMe Live contestants.</p></div>
+    <div><div class="intro-kicker"><span class="live-dot"></span> SHOW OPERATIONS / PARTICIPANTS</div><h1>Participant Management<span class="gold-period">.</span></h1><p>Manage independent Project MakeMe Live kreativs.</p></div>
     <div class="intro-actions">
         @if($canExport)<a class="btn btn-outline" href="{{ route('admin.makeme.participants.export', request()->only(['search','skill','status'])) }}">↓ Export CSV</a>@endif
         @if($canImport)<button type="button" class="btn btn-outline" data-open-modal="importModal">↥ Import Excel</button>@endif
@@ -51,7 +51,7 @@
     <article class="stat-card"><span class="stat-label">INACTIVE</span><div class="stat-value">{{ number_format($stats['inactive']) }}</div><span class="stat-detail">Access suspended</span></article>
 </div>
 <section class="panel">
-    <div class="panel-heading"><div><h2>Contestant directory</h2><p>View and manage profiles without using the NYFEW users table.</p></div><span class="record-count">{{ $participants->total() }} records</span></div>
+    <div class="panel-heading"><div><h2>Kreativs directory</h2><p>View and manage profiles without using the NYFEW users table.</p></div><span class="record-count">{{ $participants->total() }} records</span></div>
     <form class="filters" method="GET" action="{{ route('admin.makeme.participants.index') }}">
         <input name="search" type="search" placeholder="Name, business, email or participant number" value="{{ request('search') }}" aria-label="Search participants">
         <select name="skill" aria-label="Skill category"><option value="">All skills</option>@foreach($skills as $value => $label)<option value="{{ $value }}" @selected(request('skill') === $value)>{{ $label }}</option>@endforeach</select>
@@ -176,7 +176,7 @@
                                 <form
                                     method="POST"
                                     action="{{ route('admin.makeme.participants.reset-password-link', $participant) }}"
-                                    onsubmit="return confirm('Generate a new password reset link for this contestant?');"
+                                    onsubmit="return confirm('Generate a new password reset link for this kreativ?');"
                                 >
                                     @csrf
 
@@ -221,24 +221,68 @@
         <tr><td colspan="6"><div class="empty-state"><strong>No participants found</strong><p>Add a participant or adjust your filters.</p></div></td></tr>
     @endforelse
     </tbody></table></div>
-    <div class="pagination-bar"><span>{{ $participants->firstItem() ?? 0 }}–{{ $participants->lastItem() ?? 0 }} of {{ $participants->total() }}</span><div class="pagination-buttons">{{ $participants->onEachSide(1)->links() }}</div></div>
+    <div class="pagination-bar mp-pagination-bar">
+        <span class="mp-pagination-count">
+            Showing {{ $participants->firstItem() ?? 0 }}–{{ $participants->lastItem() ?? 0 }} of {{ $participants->total() }} participants
+        </span>
+
+        @if($participants->hasPages())
+            @php
+                $currentPage = $participants->currentPage();
+                $lastPage = $participants->lastPage();
+                $startPage = max(1, $currentPage - 2);
+                $endPage = min($lastPage, $currentPage + 2);
+            @endphp
+            <nav class="pagination-buttons mp-pagination" role="navigation" aria-label="Participant pages">
+                @if($participants->onFirstPage())
+                    <span class="mp-page-button mp-page-disabled" aria-disabled="true">&lsaquo; Previous</span>
+                @else
+                    <a class="mp-page-button" href="{{ $participants->previousPageUrl() }}" rel="prev">&lsaquo; Previous</a>
+                @endif
+
+                @if($startPage > 1)
+                    <a class="mp-page-button" href="{{ $participants->url(1) }}" aria-label="Page 1">1</a>
+                    @if($startPage > 2)<span class="mp-page-ellipsis" aria-hidden="true">…</span>@endif
+                @endif
+
+                @for($page = $startPage; $page <= $endPage; $page++)
+                    @if($page === $currentPage)
+                        <span class="mp-page-button mp-page-current" aria-current="page">{{ $page }}</span>
+                    @else
+                        <a class="mp-page-button" href="{{ $participants->url($page) }}" aria-label="Page {{ $page }}">{{ $page }}</a>
+                    @endif
+                @endfor
+
+                @if($endPage < $lastPage)
+                    @if($endPage < $lastPage - 1)<span class="mp-page-ellipsis" aria-hidden="true">…</span>@endif
+                    <a class="mp-page-button" href="{{ $participants->url($lastPage) }}" aria-label="Page {{ $lastPage }}">{{ $lastPage }}</a>
+                @endif
+
+                @if($participants->hasMorePages())
+                    <a class="mp-page-button" href="{{ $participants->nextPageUrl() }}" rel="next">Next &rsaquo;</a>
+                @else
+                    <span class="mp-page-button mp-page-disabled" aria-disabled="true">Next &rsaquo;</span>
+                @endif
+            </nav>
+        @endif
+    </div>
 </section>
 
 {{-- CREATE AND EDIT MODALS: keep familiar selectors for the existing JS. --}}
-@foreach(['add' => 'New contestant', 'edit' => 'Edit contestant'] as $mode => $heading)
+@foreach(['add' => 'New kreativ', 'edit' => 'Edit kreativ'] as $mode => $heading)
     @php $isEdit = $mode === 'edit'; @endphp
     @if(!$isEdit && !$canCreate) @continue @endif
     @if($isEdit && !$canEdit) @continue @endif
     <div class="modal-backdrop" id="{{ $isEdit ? 'editModal' : 'addModal' }}" hidden>
         <div class="modal-card mp-modal-wide" role="dialog" aria-modal="true" aria-labelledby="{{ $isEdit ? 'editTitle' : 'addTitle' }}">
-            <div class="modal-head"><div><span class="modal-kicker">{{ strtoupper($heading) }}</span><h2 id="{{ $isEdit ? 'editTitle' : 'addTitle' }}">{{ $isEdit ? 'Edit participant' : 'Add participant' }}</h2><p>{{ $isEdit ? 'Update contestant details and photograph.' : 'Create an official MakeMe Live contestant profile.' }}</p><p @if($isEdit) id="editName" @endif></p></div><button type="button" class="modal-close" data-close-modal aria-label="Close">×</button></div>
+            <div class="modal-head"><div><span class="modal-kicker">{{ strtoupper($heading) }}</span><h2 id="{{ $isEdit ? 'editTitle' : 'addTitle' }}">{{ $isEdit ? 'Edit participant' : 'Add participant' }}</h2><p>{{ $isEdit ? 'Update kreativ details and photograph.' : 'Create an official MakeMe Live kreativ profile.' }}</p><p @if($isEdit) id="editName" @endif></p></div><button type="button" class="modal-close" data-close-modal aria-label="Close">×</button></div>
             <form method="POST" action="{{ $isEdit ? '' : route('admin.makeme.participants.store') }}" @if($isEdit) id="editForm" @endif class="makeme-form mp-profile-form" enctype="multipart/form-data">
                 @csrf
                 @if($isEdit) @method('PATCH') @endif
                 <input type="hidden" name="_profile_modal" value="{{ $mode }}">
                 <input type="hidden" name="_participant_id" value="" @if($isEdit) id="mpEditParticipantId" @endif>
                 <section class="mp-form-section">
-                    <h3>Contestant photograph</h3>
+                    <h3>Kreativ photograph</h3>
                     <div class="mp-photo-row"><div class="mp-photo-preview" data-photo-preview><span>Photo</span></div><div><label class="field-label" for="{{ $mode }}Photo">Upload photograph</label><input type="file" id="{{ $mode }}Photo" name="photo" accept="image/jpeg,image/png,image/webp" data-photo-input><p class="mp-hint">JPG, PNG or WebP · Maximum 3 MB · Portrait recommended. {{ $isEdit ? 'Leave empty to keep the current photo.' : 'Optional.' }}</p></div></div>
                 </section>
                 @foreach($sections as $sectionName => $keys)
@@ -262,7 +306,7 @@
 @endforeach
 
 {{-- VIEW PROFILE MODAL --}}
-<div class="modal-backdrop" id="profileModal" hidden><div class="modal-card mp-modal-wide" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle"><div class="modal-head"><div><span class="modal-kicker">CONTESTANT PROFILE</span><h2 id="profileModalTitle">Contestant details</h2></div><button type="button" class="modal-close" data-close-modal aria-label="Close">×</button></div><div class="mp-profile-preview"><div class="mp-photo-preview mp-profile-photo" id="mpViewPhoto"><span>Photo</span></div><div id="mpProfileInfo" class="mp-profile-info"></div></div><div class="modal-actions"><button type="button" class="btn btn-outline-light" data-close-modal>Close</button></div></div></div>
+<div class="modal-backdrop" id="profileModal" hidden><div class="modal-card mp-modal-wide" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle"><div class="modal-head"><div><span class="modal-kicker">KREATIV PROFILE</span><h2 id="profileModalTitle">Kreativ details</h2></div><button type="button" class="modal-close" data-close-modal aria-label="Close">×</button></div><div class="mp-profile-preview"><div class="mp-photo-preview mp-profile-photo" id="mpViewPhoto"><span>Photo</span></div><div id="mpProfileInfo" class="mp-profile-info"></div></div><div class="modal-actions"><button type="button" class="btn btn-outline-light" data-close-modal>Close</button></div></div></div>
 
 {{-- EXISTING EXCEL IMPORT MODAL (UNCHANGED) --}}
 @if($canImport)
@@ -347,7 +391,7 @@
 
             <p style="font-size:13px;opacity:.75;">
                 This participant will lose access to the
-                contestant portal. Their previous orders,
+                kreativ portal. Their previous orders,
                 wallet transactions and activity history
                 will be retained.
             </p>
@@ -436,7 +480,7 @@
                 </p>
 
                 <p style="font-size:12px;color:#777;">
-                    Copy this link and send it privately to the contestant.
+                    Copy this link and send it privately to the kreativ.
                     The link expires according to your participant
                     password broker settings.
                 </p>
@@ -479,8 +523,40 @@
 
 @endsection
 @push('styles')
+<style>
+    /* Scoped pagination: independent of Tailwind or Bootstrap */
+    .mp-pagination-bar { display: flex; flex-wrap: wrap; align-items: center;
+        justify-content: space-between; gap: 14px; padding: 18px 0 4px; }
+    .mp-pagination-count { font-size: 13px; opacity: .8; }
+    .mp-pagination { display: flex; flex-wrap: wrap; align-items: center;
+        justify-content: flex-end; gap: 6px; }
+    .mp-pagination .mp-page-button { display: inline-flex; align-items: center;
+        justify-content: center; min-width: 36px; min-height: 36px; padding: 7px 11px;
+        border: 1px solid #d8ccad; border-radius: 8px; background: #fff;
+        color: #29251d; font-size: 13px; font-weight: 600; line-height: 1.25;
+        text-decoration: none; box-sizing: border-box; white-space: nowrap; }
+    .mp-pagination a.mp-page-button:hover, .mp-pagination a.mp-page-button:focus-visible {
+        background: #fff3d8; border-color: #bc9241; color: #211b10; }
+    .mp-pagination .mp-page-current { color: #191713; background: #e3bb60;
+        border-color: #c3973e; font-weight: 800; }
+    .mp-pagination .mp-page-disabled { opacity: .45; cursor: not-allowed; }
+    .mp-pagination .mp-page-ellipsis { padding: 0 3px; opacity: .7; }
+    @media (max-width: 640px) {
+        .mp-pagination-bar { justify-content: center; }
+        .mp-pagination { justify-content: center; }
+        .mp-pagination .mp-page-button { min-width: 32px; min-height: 34px; padding: 6px 8px; }
+    }
+</style>
     <link rel="stylesheet" href="{{ asset('css/makeme-independent-participants.css') }}">
     <link rel="stylesheet" href="{{ asset('css/makeme-participant-profile-admin.css') }}">
+    <style>
+        .mp-action-dropdown:not([hidden]) {
+            position: fixed !important;
+            z-index: 2147483000 !important;
+            max-height: calc(100vh - 20px);
+            overflow-y: auto;
+        }
+    </style>
 @endpush
 @push('scripts')
     <script src="{{ asset('js/makeme-participants-independent.js') }}" defer></script>
@@ -562,113 +638,89 @@ document.addEventListener('DOMContentLoaded', function () {
 });
 </script>
 <script>
-
+// Action-menu portal: prevents table overflow / transformed parents from hiding menus.
 document.addEventListener('DOMContentLoaded', function () {
-
-    let activeMenu = null;
-    let activeTrigger = null;
+    let active = null;
 
     function closeActionMenu() {
-        if (activeMenu) {
-            activeMenu.hidden = true;
+        if (!active) return;
+        const { menu, trigger, placeholder } = active;
+        menu.hidden = true;
+        menu.style.visibility = '';
+        menu.style.left = '';
+        menu.style.top = '';
+        menu.style.position = '';
+        menu.style.zIndex = '';
+        if (placeholder.parentNode) {
+            placeholder.replaceWith(menu);
         }
-
-        if (activeTrigger) {
-            activeTrigger.setAttribute('aria-expanded', 'false');
-        }
-
-        activeMenu = null;
-        activeTrigger = null;
+        trigger.setAttribute('aria-expanded', 'false');
+        active = null;
     }
 
     function positionMenu(trigger, menu) {
         const rect = trigger.getBoundingClientRect();
-
-        menu.style.visibility = 'hidden';
-        menu.hidden = false;
-
-        const menuWidth = menu.offsetWidth;
-        const menuHeight = menu.offsetHeight;
         const gap = 6;
         const margin = 10;
+        const width = menu.offsetWidth;
+        const height = menu.offsetHeight;
 
-        let left = rect.right - menuWidth;
-        left = Math.max(
-            margin,
-            Math.min(left, window.innerWidth - menuWidth - margin)
-        );
-
+        const left = Math.max(margin,
+            Math.min(rect.right - width, window.innerWidth - width - margin));
         let top = rect.bottom + gap;
-
-        // Open upward when the bottom space is insufficient.
-        if (
-            top + menuHeight > window.innerHeight - margin &&
-            rect.top >= menuHeight + gap
-        ) {
-            top = rect.top - menuHeight - gap;
+        if (top + height > window.innerHeight - margin && rect.top >= height + gap) {
+            top = rect.top - height - gap;
         }
+        top = Math.max(margin,
+            Math.min(top, window.innerHeight - height - margin));
 
-        top = Math.max(
-            margin,
-            Math.min(top, window.innerHeight - menuHeight - margin)
-        );
-
-        menu.style.left = left + 'px';
-        menu.style.top = top + 'px';
+        menu.style.left = `${left}px`;
+        menu.style.top = `${top}px`;
         menu.style.visibility = 'visible';
     }
 
-    document.querySelectorAll('.mp-action-trigger')
-        .forEach(function (trigger) {
-
-            trigger.addEventListener('click', function (event) {
-                event.stopPropagation();
-
-                const menu = trigger.parentElement
-                    .querySelector('.mp-action-dropdown');
-
-                if (!menu) return;
-
-                if (activeMenu === menu) {
-                    closeActionMenu();
-                    return;
-                }
-
+    document.querySelectorAll('.mp-action-trigger').forEach(function (trigger) {
+        trigger.addEventListener('click', function (event) {
+            event.stopPropagation();
+            if (active?.trigger === trigger) {
                 closeActionMenu();
+                return;
+            }
+            closeActionMenu();
 
-                activeMenu = menu;
-                activeTrigger = trigger;
+            const menu = trigger.parentElement.querySelector('.mp-action-dropdown');
+            if (!menu) return;
 
-                trigger.setAttribute('aria-expanded', 'true');
-                positionMenu(trigger, menu);
-            });
+            const placeholder = document.createComment('participant action menu location');
+            menu.replaceWith(placeholder);
+            document.body.appendChild(menu);
+            menu.style.position = 'fixed';
+            menu.style.zIndex = '2147483000';
+            menu.style.visibility = 'hidden';
+            menu.hidden = false;
+            active = { menu, trigger, placeholder };
+            trigger.setAttribute('aria-expanded', 'true');
+            positionMenu(trigger, menu);
         });
+    });
 
     document.addEventListener('click', function (event) {
-        if (
-            activeMenu &&
-            !activeMenu.contains(event.target) &&
-            !activeTrigger.contains(event.target)
-        ) {
-            closeActionMenu();
+        if (!active) return;
+        if (active.menu.contains(event.target)) {
+            // A menu item has been selected; let the existing action handler run.
+            if (event.target.closest('.mp-action-item')) {
+                closeActionMenu();
+            }
+            return;
         }
+        if (!active.trigger.contains(event.target)) closeActionMenu();
     });
 
     document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape') {
-            closeActionMenu();
-        }
+        if (event.key === 'Escape') closeActionMenu();
     });
-
     window.addEventListener('resize', closeActionMenu);
-
-    // Close on table scrolling to avoid misaligned menus.
-    document.querySelectorAll('.table-scroll')
-        .forEach(function (container) {
-            container.addEventListener('scroll', closeActionMenu);
-        });
-
+    window.addEventListener('scroll', closeActionMenu, true);
 });
-
 </script>
 @endpush

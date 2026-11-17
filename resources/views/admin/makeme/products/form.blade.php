@@ -7,7 +7,22 @@
 <div class="panel-heading"><div><h2>Product details</h2><p>Items will be listed to approved contestants when published.</p></div></div>
 <div class="form-grid">
 <div class="form-field"><label for="name">Product name *</label><input id="name" name="name" required maxlength="180" value="{{ old('name',$product->name) }}" placeholder="e.g. Sewing Machine"></div>
-<div class="form-field"><label for="sku">SKU / stock code *</label><input id="sku" name="sku" required maxlength="80" value="{{ old('sku',$product->sku) }}" placeholder="e.g. NYF-SEW-001"></div>
+<div class="form-field">
+    <label for="sku">SKU / Stock Code</label>
+
+    <input
+        id="sku"
+        type="text"
+        value="{{ $product->exists ? $product->sku : 'Automatically generated on save' }}"
+        readonly
+    >
+
+    <small>
+        {{ $product->exists
+            ? 'This product SKU is generated automatically and cannot be changed.'
+            : 'A unique SKU will be assigned when this product is created.' }}
+    </small>
+</div>
 <div class="form-field"><label for="category">Category *</label><select id="category" name="category" required><option value="">Choose a category</option>@foreach(['general'=>'General (all skills)','fashion_designing'=>'Fashion Designing','shoe_making'=>'Shoe-making','hair_styling'=>'Hair Styling','photography'=>'Photography','makeup_artistry'=>'Makeup Artistry'] as $key=>$label)<option value="{{ $key }}" @selected(old('category',$product->category)===$key)>{{ $label }}</option>@endforeach</select></div>
 <div class="form-field"><label for="credit_price">Credit price *</label><input id="credit_price" name="credit_price" required type="number" min="0" max="999999999" value="{{ old('credit_price',$product->credit_price) }}"></div>
 <div class="form-field"><label for="stock_quantity">Stock quantity *</label><input id="stock_quantity" name="stock_quantity" required type="number" min="0" max="999999999" value="{{ old('stock_quantity',$product->stock_quantity ?? 0) }}"></div>

@@ -2,3 +2,48 @@
 
 
 
+/* Featured Supplies - Explore Marketplace */
+
+.cp-supply-footer {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid rgba(128, 128, 128, 0.15);
+}
+
+.cp-explore-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 13px 24px;
+    min-height: 46px;
+    border-radius: 10px;
+    background: #f4a116;
+    color: #141414 !important;
+    font-size: 13px;
+    font-weight: 800;
+    text-decoration: none !important;
+    transition: background .2s ease, transform .2s ease;
+}
+
+.cp-explore-btn:hover {
+    background: #ffc05a;
+    transform: translateY(-2px);
+}
+
+.cp-explore-btn span {
+    font-size: 18px;
+    transition: transform .2s ease;
+}
+
+.cp-explore-btn:hover span {
+    transform: translateX(3px);
+}
+
+@media (max-width: 640px) {
+    .cp-explore-btn {
+        width: 100%;
+    }
+}

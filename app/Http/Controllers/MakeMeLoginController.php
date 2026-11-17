@@ -71,8 +71,10 @@ class MakeMeLoginController extends Controller
         return redirect()->route($destination);
     }
 
+    
     private function destination(User $user): ?string
     {
+        // Check basic account eligibility
         if (
             (int) $user->user_status !== 1 ||
             $user->applicant_type === 'WAITLIST'
@@ -80,17 +82,49 @@ class MakeMeLoginController extends Controller
             return null;
         }
 
-        // Administrator access
+        // ADMINISTRATOR ACCESS
         if ((int) $user->user_type === 1) {
 
+            // Super Admin
+            if ($user->hasRole('Super Admin', 'web')) {
+                return 'admin.makeme.dashboard';
+            }
+
+            // Dashboard access
+            if ($user->can('makeme.dashboard.view')) {
+                return 'admin.makeme.dashboard';
+            }
+
+            // Participant Management
             if ($user->can('makeme.participants.view')) {
                 return 'admin.makeme.participants.index';
             }
 
+            // Products & Stock
+            if ($user->can('makeme.products.view')) {
+                return 'admin.makeme.products.index';
+            }
+
+            // Kolo Money / Wallet Management
+            if ($user->can('makeme.wallets.view')) {
+                return 'admin.makeme.wallets.index';
+            }
+
+            // Order Management
+            if ($user->can('makeme.orders.view')) {
+                return 'admin.makeme.orders.index';
+            }
+
+            // Reports & Analytics
+            if ($user->can('makeme.reports.view')) {
+                return 'admin.makeme.reports.index';
+            }
+
+            // Administrators with no portal permissions
             return null;
         }
 
-        // Participant access
+        // EXISTING PARTICIPANT ACCESS
         if (
             (int) $user->email_verified_status === 1 &&
             $user->makeMeParticipant()
@@ -102,4 +136,5 @@ class MakeMeLoginController extends Controller
 
         return null;
     }
+
 }

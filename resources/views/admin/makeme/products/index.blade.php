@@ -344,9 +344,19 @@
                         <small>What does one purchased unit contain?</small>
                     </div>
 
-                    <div class="pm-field">
-                        <label>SKU *</label>
-                        <input name="sku" id="pmSku" maxlength="80" required>
+                   <div class="pm-field">
+                        <label for="pmSku">SKU / Stock Code</label>
+                    
+                        <input
+                            type="text"
+                            id="pmSku"
+                            value="Automatically generated on save"
+                            readonly
+                        >
+                    
+                        <small>
+                            A unique SKU is generated automatically when creating a product.
+                        </small>
                     </div>
 
                     <div class="pm-field">

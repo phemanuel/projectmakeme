@@ -41,7 +41,7 @@
             </div>
         </div>
     </div>
-
+@include('makeme.participant.kolo.partials.transfer-modal')
     <section class="km-history" aria-labelledby="km-history-title">
         <div class="km-history-head">
             <div>
@@ -118,6 +118,8 @@
 
     <p class="km-info-note"><span aria-hidden="true">ⓘ</span> Kolo Money credits are used within Project MakeMe Live. Credit allocations and adjustments are managed by the show administrators.</p>
 </div>
+
+@include('makeme.participant.kolo.partials.transfer-modal')
 @endsection
 
 @push('styles')
